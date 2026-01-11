@@ -3,7 +3,8 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { ZodError } from 'zod';
 import { dbPool } from './infra/db/pool';
 import { apiError } from './http/errors/apiError';
-import { AppError } from './http/errors/appErrors';
+import { AppError } from './shared/errors/appErrors';
+import { DomainValidationError } from './domain/errors/domainValidationError';
 import { registerCors } from './http/plugins/cors';
 import { registerRateLimit } from './http/plugins/rateLimit';
 import { registerRoutes } from './http/routes';
@@ -27,6 +28,12 @@ export async function buildApp(): Promise<FastifyInstance> {
       return reply
         .status(400)
         .send(apiError('VALIDATION_ERROR', 'Invalid request', err.flatten()));
+    }
+
+    if (err instanceof DomainValidationError) {
+      return reply
+        .status(422)
+        .send(apiError(err.code, err.message, err.details));
     }
 
     if (err instanceof AppError) {

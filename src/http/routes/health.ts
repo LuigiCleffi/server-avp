@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { dbPool } from '../../infra/db/pool';
+import { dbPool } from '@/infra/db/pool';
 
 export async function healthRoutes(app: FastifyInstance): Promise<void> {
   app.get('/health', async () => {
