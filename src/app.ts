@@ -3,6 +3,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { ZodError } from 'zod';
 import { dbPool } from './infra/db/pool';
 import { apiError } from './http/errors/apiError';
+import { AppError } from './http/errors/appErrors';
 import { registerCors } from './http/plugins/cors';
 import { registerRateLimit } from './http/plugins/rateLimit';
 import { registerRoutes } from './http/routes';
@@ -21,11 +22,20 @@ export async function buildApp(): Promise<FastifyInstance> {
     reply.header('x-request-id', req.id);
   });
 
-  app.setErrorHandler(async (err, _req, reply) => {
+  app.setErrorHandler(async (err, req, reply) => {
     if (err instanceof ZodError) {
       return reply
         .status(400)
         .send(apiError('VALIDATION_ERROR', 'Invalid request', err.flatten()));
+    }
+
+    if (err instanceof AppError) {
+      req.log.info(
+        { err: { name: err.name, code: err.code, details: err.details } },
+        'Request failed with handled error',
+      );
+
+      return reply.status(err.statusCode).send(apiError(err.code, err.message, err.details));
     }
 
     return reply.status(500).send(apiError('INTERNAL_ERROR', 'Internal server error'));
