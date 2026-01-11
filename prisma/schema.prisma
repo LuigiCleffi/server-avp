@@ -1,0 +1,161 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum MatchType {
+  REGULAR
+  SEMI_FINAL
+  FINAL
+  THIRD_PLACE
+}
+
+model User {
+  id               String             @id @default(uuid()) @db.Uuid
+  name             String
+  email            String             @unique
+  password         String
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  role             UserRole           @default(USER)
+  tournaments      Tournament[]       // Tournaments created by the user (e.g., as organizer)
+  participants     Participant[]      // Tournaments the user participates in
+  tournamentRequests TournamentRequest[] // Tournament requests made by the user
+  reviewedRequests TournamentRequest[] @relation("ReviewedRequests") // Requests reviewed by admin
+
+  @@map("users")
+}
+
+enum GameGenre {
+  FIGHTING
+  SHOOTER
+  STRATEGY
+  RPG
+  SPORTS
+  PUZZLE
+  ADVENTURE
+}
+
+model Game {
+  id                 String             @id @default(uuid()) @db.Uuid
+  name               String             @unique
+  description        String?
+  genre              GameGenre
+  active             Boolean            @default(true)
+  tournaments        Tournament[]
+  tournamentRequests TournamentRequest[]
+
+  @@map("games")
+}
+
+model Tournament {
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String
+  description  String?
+  startDate    DateTime
+  endDate      DateTime?
+  fee          Decimal      @db.Decimal(10, 2)
+  prizePool    Decimal      @db.Decimal(10, 2)
+  format       TournamentFormat @default(SINGLE_ELIMINATION)
+  maxParticipants Int            @map("max_participants")
+  status          TournamentStatus @default(SCHEDULED)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  user            User             @relation(fields: [userId], references: [id])
+  userId          String           @map("user_id") @db.Uuid
+  game         Game          @relation(fields: [gameId], references: [id])
+  gameId       String        @map("game_id") @db.Uuid
+  participants Participant[]
+  matches      Match[]
+
+  @@map("tournaments")
+  @@unique([gameId, name])
+}
+
+model Participant {
+  id           String     @id @default(uuid()) @db.Uuid
+  user         User       @relation(fields: [userId], references: [id]) // User participating in the tournament
+  userId       String     @map("user_id") @db.Uuid
+  tournament   Tournament @relation(fields: [tournamentId], references: [id]) // Tournament they joined
+  tournamentId String     @map("tournament_id") @db.Uuid
+  joinedAt     DateTime   @default(now())
+  wonMatches   Match[]    @relation("MatchWinner")
+
+  @@unique([userId, tournamentId])
+  @@map("participants")
+}
+
+model Match {
+  id            String       @id @default(uuid()) @db.Uuid
+  tournament    Tournament   @relation(fields: [tournamentId], references: [id])
+  tournamentId  String       @map("tournament_id") @db.Uuid
+  round         Int
+  winner        Participant? @relation("MatchWinner", fields: [winnerId], references: [id])
+  winnerId      String?      @map("winner_id") @db.Uuid
+  playedAt      DateTime?
+  type          MatchType    @default(REGULAR) // Type of the match (e.g., REGULAR, FINAL, THIRD_PLACE)
+  participantId String?
+
+  @@index([tournamentId, round])
+  @@map("matches")
+}
+
+enum TournamentFormat {
+  SINGLE_ELIMINATION
+  DOUBLE_ELIMINATION
+  ROUND_ROBIN
+  SWISS
+}
+
+enum TournamentStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  COMPLETED
+  CANCELED
+  PENDING_APPROVAL
+}
+
+model TournamentRequest {
+  id            Int              @id @default(autoincrement())
+  title         String
+  description   String
+  startDate     DateTime
+  endDate       DateTime?
+  prizePool     Float            @default(0)
+  fee           Float            @default(0)
+  maxPlayers    Int
+  gameId        String           @db.Uuid
+  requestedById String           @db.Uuid
+  justification String           // User's justification for the tournament
+  adminNotes    String?          // Admin's notes during review
+  status        String           @default("PENDING_APPROVAL") // Use string for request status
+  reviewedAt    DateTime?
+  reviewedById  String?          @db.Uuid
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  // Relations
+  game          Game             @relation(fields: [gameId], references: [id])
+  requestedBy   User             @relation(fields: [requestedById], references: [id])
+  reviewedBy    User?            @relation("ReviewedRequests", fields: [reviewedById], references: [id])
+
+  @@map("tournament_requests")
+}
