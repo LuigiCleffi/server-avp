@@ -1,7 +1,5 @@
-import { buildApp } from '@/app';
-
-const port = Number(process.env.PORT ?? 3000);
-const host = process.env.HOST ?? '0.0.0.0';
+import { buildApp } from './app';
+import { env } from './env';
 
 async function main() {
   const app = await buildApp();
@@ -16,8 +14,8 @@ async function main() {
   }
 
   try {
-    await app.listen({ port, host });
-    app.log.info({ port, host }, 'HTTP server listening');
+    await app.listen({ port: env.port, host: env.host });
+    app.log.info({ port: env.port, host: env.host }, 'HTTP server listening');
   } catch (err) {
     app.log.error({ err }, 'Error starting server');
     process.exit(1);

@@ -1,0 +1,29 @@
+services:
+  db:
+    image: bitnami/postgresql:latest
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: etourney
+      POSTGRES_PASSWORD: etourney_psw!
+      POSTGRES_DB: etourney_db
+    ports:
+      - '5432:5432'
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATABASE_URL: postgresql://etourney:etourney_psw!@db:5432/etourney_db?schema=public
+      JWT_SECRET: change-me
+    ports:
+      - '3000:3000'
+    depends_on:
+      - db
+
+volumes:
+  db_data:
+
