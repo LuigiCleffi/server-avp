@@ -7,11 +7,19 @@ import { AppError } from './shared/errors/appErrors';
 import { DomainValidationError } from './domain/errors/domainValidationError';
 import { registerCors } from './http/plugins/cors';
 import { registerRateLimit } from './http/plugins/rateLimit';
+import { registerSwagger } from './http/plugins/swagger';
 import { registerRoutes } from './http/routes';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
     logger: true,
+    ajv: {
+      customOptions: {
+        // We use Zod for request validation; route schemas are primarily for OpenAPI docs.
+        // Disable strict schema so OpenAPI extensions like `example` don't crash startup.
+        strictSchema: false,
+      },
+    },
     genReqId(req) {
       const headerValue = req.headers['x-request-id'];
       if (typeof headerValue === 'string' && headerValue.length > 0) return headerValue;
@@ -21,6 +29,11 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   app.addHook('onSend', async (req, reply) => {
     reply.header('x-request-id', req.id);
+
+    // Avoid stale Swagger UI/spec in local dev
+    if (req.url === '/docs' || req.url.startsWith('/docs/')) {
+      reply.header('cache-control', 'no-store');
+    }
   });
 
   app.setErrorHandler(async (err, req, reply) => {
@@ -50,6 +63,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await registerCors(app);
   await registerRateLimit(app);
+  await registerSwagger(app);
   await registerRoutes(app);
 
   app.addHook('onClose', async () => {

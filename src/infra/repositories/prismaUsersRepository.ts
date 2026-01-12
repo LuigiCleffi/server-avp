@@ -1,7 +1,26 @@
 import type { UsersRepository } from '@/application/ports/usersRepository';
 import { User, UserRole } from '@/domain/entities/user';
 import type { Email } from '@/domain/value-objects/email';
+import type { UserRole as PrismaUserRole } from '@/generated/prisma/client';
 import { prisma } from '../prisma/client';
+
+function toDomainUserRole(role: PrismaUserRole): UserRole {
+  switch (role) {
+    case 'USER':
+      return UserRole.USER;
+    case 'ADMIN':
+      return UserRole.ADMIN;
+  }
+}
+
+function toPrismaUserRole(role: UserRole): PrismaUserRole {
+  switch (role) {
+    case UserRole.USER:
+      return 'USER';
+    case UserRole.ADMIN:
+      return 'ADMIN';
+  }
+}
 
 export class PrismaUsersRepository implements UsersRepository {
   async findById(id: string): Promise<User | null> {
@@ -13,7 +32,7 @@ export class PrismaUsersRepository implements UsersRepository {
       name: record.name,
       email: record.email,
       passwordHash: record.password,
-      role: record.role as unknown as UserRole,
+      role: toDomainUserRole(record.role),
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
     });
@@ -28,7 +47,7 @@ export class PrismaUsersRepository implements UsersRepository {
       name: record.name,
       email: record.email,
       passwordHash: record.password,
-      role: record.role as unknown as UserRole,
+      role: toDomainUserRole(record.role),
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
     });
@@ -43,7 +62,7 @@ export class PrismaUsersRepository implements UsersRepository {
         name: primitives.name,
         email: primitives.email,
         password: primitives.passwordHash,
-        role: primitives.role,
+        role: toPrismaUserRole(primitives.role),
       },
     });
   }
@@ -57,7 +76,7 @@ export class PrismaUsersRepository implements UsersRepository {
         name: primitives.name,
         email: primitives.email,
         password: primitives.passwordHash,
-        role: primitives.role,
+        role: toPrismaUserRole(primitives.role),
       },
     });
   }

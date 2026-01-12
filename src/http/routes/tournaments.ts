@@ -11,6 +11,10 @@ import { CreateTournament } from '@/application/use-cases/tournaments/createTour
 import { UpdateTournament } from '@/application/use-cases/tournaments/updateTournament';
 import { ChangeTournamentStatus } from '@/application/use-cases/tournaments/changeTournamentStatus';
 import { requireAuth } from '@/http/auth/authMiddleware';
+import {
+  apiErrorResponseSchema,
+  noContentSchema,
+} from '@/http/openapi/schemas';
 
 export type TournamentRoutesDeps = {
   tournamentsRepository: TournamentsRepository;
@@ -27,9 +31,31 @@ const listQuerySchema = z.object({
   pageSize: z.coerce.number().int().positive().max(100).optional().default(20),
 });
 
+const listQueryOpenApiSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    gameId: { type: 'string', format: 'uuid' },
+    status: { type: 'string', enum: Object.values(TournamentStatus) },
+    startFrom: { type: 'string', format: 'date-time' },
+    startTo: { type: 'string', format: 'date-time' },
+    page: { type: 'integer', minimum: 1, default: 1 },
+    pageSize: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+  },
+} as const;
+
 const idParamsSchema = z.object({
   id: z.string().uuid(),
 });
+
+const idParamsOpenApiSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id'],
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+  },
+} as const;
 
 const createBodySchema = z.object({
   name: z.string().min(1),
@@ -60,6 +86,110 @@ const changeStatusBodySchema = z.object({
   status: z.nativeEnum(TournamentStatus),
 });
 
+const createBodyOpenApiSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'name',
+    'startDate',
+    'fee',
+    'prizePool',
+    'format',
+    'maxParticipants',
+    'gameId',
+  ],
+  properties: {
+    name: { type: 'string', minLength: 1 },
+    description: { anyOf: [{ type: 'string', minLength: 1 }, { type: 'null' }] },
+    startDate: { type: 'string', format: 'date-time' },
+    endDate: { anyOf: [{ type: 'string', format: 'date-time' }, { type: 'null' }] },
+    fee: { type: 'string', minLength: 1, description: 'Decimal amount as string, e.g. "10.00"' },
+    prizePool: { type: 'string', minLength: 1, description: 'Decimal amount as string, e.g. "100.00"' },
+    format: { type: 'string', enum: Object.values(TournamentFormat) },
+    maxParticipants: { type: 'integer', minimum: 1 },
+    gameId: { type: 'string', format: 'uuid' },
+  },
+  example: {
+    name: 'Weekly Cup #12',
+    description: 'Bring your best plays.',
+    startDate: '2026-01-20T18:00:00.000Z',
+    endDate: null,
+    fee: '10.00',
+    prizePool: '200.00',
+    format: TournamentFormat.SINGLE_ELIMINATION,
+    maxParticipants: 64,
+    gameId: '11111111-1111-1111-1111-111111111111',
+  },
+} as const;
+
+const updateBodyOpenApiSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    name: { type: 'string', minLength: 1 },
+    description: { anyOf: [{ type: 'string', minLength: 1 }, { type: 'null' }] },
+    startDate: { type: 'string', format: 'date-time' },
+    endDate: { anyOf: [{ type: 'string', format: 'date-time' }, { type: 'null' }] },
+    fee: { type: 'string', minLength: 1 },
+    prizePool: { type: 'string', minLength: 1 },
+    format: { type: 'string', enum: Object.values(TournamentFormat) },
+    maxParticipants: { type: 'integer', minimum: 1 },
+  },
+  example: {
+    name: 'Weekly Cup #12 (updated)',
+    maxParticipants: 128,
+  },
+} as const;
+
+const changeStatusBodyOpenApiSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['status'],
+  properties: {
+    status: { type: 'string', enum: Object.values(TournamentStatus) },
+  },
+  example: {
+    status: TournamentStatus.PENDING_APPROVAL,
+  },
+} as const;
+
+const tournamentPrimitivesSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'name',
+    'description',
+    'startDate',
+    'endDate',
+    'fee',
+    'prizePool',
+    'format',
+    'maxParticipants',
+    'status',
+    'organizerUserId',
+    'gameId',
+    'createdAt',
+    'updatedAt',
+  ],
+  properties: {
+    id: { type: 'string' },
+    name: { type: 'string' },
+    description: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+    startDate: { type: 'string' },
+    endDate: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+    fee: { type: 'string' },
+    prizePool: { type: 'string' },
+    format: { type: 'string', enum: Object.values(TournamentFormat) },
+    maxParticipants: { type: 'integer' },
+    status: { type: 'string', enum: Object.values(TournamentStatus) },
+    organizerUserId: { type: 'string' },
+    gameId: { type: 'string' },
+    createdAt: { type: 'string' },
+    updatedAt: { type: 'string' },
+  },
+} as const;
+
 export async function tournamentRoutes(app: FastifyInstance, deps: TournamentRoutesDeps): Promise<void> {
   const listTournaments = new ListTournaments(deps.tournamentsRepository);
   const getTournamentDetails = new GetTournamentDetails(deps.tournamentsRepository);
@@ -67,7 +197,34 @@ export async function tournamentRoutes(app: FastifyInstance, deps: TournamentRou
   const updateTournament = new UpdateTournament(deps.tournamentsRepository);
   const changeTournamentStatus = new ChangeTournamentStatus(deps.tournamentsRepository);
 
-  app.get('/tournaments', async (req) => {
+  app.get(
+    '/tournaments',
+    {
+      schema: {
+        tags: ['Tournaments'],
+        summary: 'List tournaments',
+        querystring: listQueryOpenApiSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['items', 'page', 'pageSize', 'total'],
+            properties: {
+              items: {
+                type: 'array',
+                items: tournamentPrimitivesSchema,
+              },
+              page: { type: 'number' },
+              pageSize: { type: 'number' },
+              total: { type: 'number' },
+            },
+          },
+          400: apiErrorResponseSchema,
+          500: apiErrorResponseSchema,
+        },
+      },
+    },
+    async (req) => {
     const query = parseQuery(req, listQuerySchema);
 
     return listTournaments.execute({
@@ -78,15 +235,57 @@ export async function tournamentRoutes(app: FastifyInstance, deps: TournamentRou
       page: query.page,
       pageSize: query.pageSize,
     });
-  });
+    },
+  );
 
-  app.get('/tournaments/:id', async (req) => {
+  app.get(
+    '/tournaments/:id',
+    {
+      schema: {
+        tags: ['Tournaments'],
+        summary: 'Get tournament details',
+        params: idParamsOpenApiSchema,
+        response: {
+          200: tournamentPrimitivesSchema,
+          400: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          500: apiErrorResponseSchema,
+        },
+      },
+    },
+    async (req) => {
     const params = parseParams(req, idParamsSchema);
 
     return getTournamentDetails.execute({ id: params.id });
-  });
+    },
+  );
 
-  app.post('/tournaments', async (req, reply) => {
+  app.post(
+    '/tournaments',
+    {
+      schema: {
+        tags: ['Tournaments'],
+        summary: 'Create a tournament',
+        security: [{ bearerAuth: [] }],
+        body: createBodyOpenApiSchema,
+        response: {
+          201: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['id'],
+            properties: {
+              id: { type: 'string' },
+            },
+          },
+          400: apiErrorResponseSchema,
+          401: apiErrorResponseSchema,
+          403: apiErrorResponseSchema,
+          422: apiErrorResponseSchema,
+          500: apiErrorResponseSchema,
+        },
+      },
+    },
+    async (req, reply) => {
     const actor = await requireAuth(req, deps.tokenService);
     const body = parseBody(req, createBodySchema);
 
@@ -104,9 +303,30 @@ export async function tournamentRoutes(app: FastifyInstance, deps: TournamentRou
     });
 
     return reply.status(201).send(result);
-  });
+    },
+  );
 
-  app.patch('/tournaments/:id', async (req, reply) => {
+  app.patch(
+    '/tournaments/:id',
+    {
+      schema: {
+        tags: ['Tournaments'],
+        summary: 'Update a tournament',
+        security: [{ bearerAuth: [] }],
+        params: idParamsOpenApiSchema,
+        body: updateBodyOpenApiSchema,
+        response: {
+          204: noContentSchema,
+          400: apiErrorResponseSchema,
+          401: apiErrorResponseSchema,
+          403: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          422: apiErrorResponseSchema,
+          500: apiErrorResponseSchema,
+        },
+      },
+    },
+    async (req, reply) => {
     const actor = await requireAuth(req, deps.tokenService);
     const params = parseParams(req, idParamsSchema);
     const body = parseBody(req, updateBodySchema);
@@ -118,9 +338,30 @@ export async function tournamentRoutes(app: FastifyInstance, deps: TournamentRou
     });
 
     return reply.status(204).send();
-  });
+    },
+  );
 
-  app.post('/tournaments/:id/status', async (req, reply) => {
+  app.post(
+    '/tournaments/:id/status',
+    {
+      schema: {
+        tags: ['Tournaments'],
+        summary: 'Change tournament status',
+        security: [{ bearerAuth: [] }],
+        params: idParamsOpenApiSchema,
+        body: changeStatusBodyOpenApiSchema,
+        response: {
+          204: noContentSchema,
+          400: apiErrorResponseSchema,
+          401: apiErrorResponseSchema,
+          403: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          422: apiErrorResponseSchema,
+          500: apiErrorResponseSchema,
+        },
+      },
+    },
+    async (req, reply) => {
     const actor = await requireAuth(req, deps.tokenService);
     const params = parseParams(req, idParamsSchema);
     const body = parseBody(req, changeStatusBodySchema);
@@ -132,5 +373,6 @@ export async function tournamentRoutes(app: FastifyInstance, deps: TournamentRou
     });
 
     return reply.status(204).send();
-  });
+    },
+  );
 }

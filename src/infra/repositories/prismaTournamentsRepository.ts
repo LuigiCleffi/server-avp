@@ -5,7 +5,72 @@ import type {
   TournamentsRepository,
 } from '@/application/ports/tournamentsRepository';
 import { Tournament, TournamentFormat, TournamentStatus } from '@/domain/entities/tournament';
+import type {
+  Prisma,
+  TournamentFormat as PrismaTournamentFormat,
+  TournamentStatus as PrismaTournamentStatus,
+} from '@/generated/prisma/client';
 import { prisma } from '@/infra/prisma/client';
+
+function toDomainTournamentFormat(format: PrismaTournamentFormat): TournamentFormat {
+  switch (format) {
+    case 'SINGLE_ELIMINATION':
+      return TournamentFormat.SINGLE_ELIMINATION;
+    case 'DOUBLE_ELIMINATION':
+      return TournamentFormat.DOUBLE_ELIMINATION;
+    case 'ROUND_ROBIN':
+      return TournamentFormat.ROUND_ROBIN;
+    case 'SWISS':
+      return TournamentFormat.SWISS;
+  }
+}
+
+function toDomainTournamentStatus(status: PrismaTournamentStatus): TournamentStatus {
+  switch (status) {
+    case 'DRAFT':
+      return TournamentStatus.DRAFT;
+    case 'SCHEDULED':
+      return TournamentStatus.SCHEDULED;
+    case 'RUNNING':
+      return TournamentStatus.RUNNING;
+    case 'COMPLETED':
+      return TournamentStatus.COMPLETED;
+    case 'CANCELED':
+      return TournamentStatus.CANCELED;
+    case 'PENDING_APPROVAL':
+      return TournamentStatus.PENDING_APPROVAL;
+  }
+}
+
+function toPrismaTournamentFormat(format: TournamentFormat): PrismaTournamentFormat {
+  switch (format) {
+    case TournamentFormat.SINGLE_ELIMINATION:
+      return 'SINGLE_ELIMINATION';
+    case TournamentFormat.DOUBLE_ELIMINATION:
+      return 'DOUBLE_ELIMINATION';
+    case TournamentFormat.ROUND_ROBIN:
+      return 'ROUND_ROBIN';
+    case TournamentFormat.SWISS:
+      return 'SWISS';
+  }
+}
+
+function toPrismaTournamentStatus(status: TournamentStatus): PrismaTournamentStatus {
+  switch (status) {
+    case TournamentStatus.DRAFT:
+      return 'DRAFT';
+    case TournamentStatus.SCHEDULED:
+      return 'SCHEDULED';
+    case TournamentStatus.RUNNING:
+      return 'RUNNING';
+    case TournamentStatus.COMPLETED:
+      return 'COMPLETED';
+    case TournamentStatus.CANCELED:
+      return 'CANCELED';
+    case TournamentStatus.PENDING_APPROVAL:
+      return 'PENDING_APPROVAL';
+  }
+}
 
 export class PrismaTournamentsRepository implements TournamentsRepository {
   async findById(id: string): Promise<Tournament | null> {
@@ -20,9 +85,9 @@ export class PrismaTournamentsRepository implements TournamentsRepository {
       endDate: record.endDate,
       fee: record.fee.toString(),
       prizePool: record.prizePool.toString(),
-      format: record.format as unknown as TournamentFormat,
+      format: toDomainTournamentFormat(record.format),
       maxParticipants: record.maxParticipants,
-      status: record.status as unknown as TournamentStatus,
+      status: toDomainTournamentStatus(record.status),
       organizerUserId: record.userId,
       gameId: record.gameId,
       createdAt: record.createdAt,
@@ -38,15 +103,16 @@ export class PrismaTournamentsRepository implements TournamentsRepository {
     const page = Math.max(1, pagination.page);
     const skip = (page - 1) * pageSize;
 
-    const where: any = {};
+    const where: Prisma.TournamentWhereInput = {};
 
     if (filter.gameId) where.gameId = filter.gameId;
-    if (filter.status) where.status = filter.status;
+    if (filter.status) where.status = toPrismaTournamentStatus(filter.status);
 
     if (filter.startFrom || filter.startTo) {
-      where.startDate = {};
-      if (filter.startFrom) where.startDate.gte = filter.startFrom;
-      if (filter.startTo) where.startDate.lte = filter.startTo;
+      where.startDate = {
+        ...(filter.startFrom ? { gte: filter.startFrom } : {}),
+        ...(filter.startTo ? { lte: filter.startTo } : {}),
+      };
     }
 
     const [total, rows] = await Promise.all([
@@ -72,9 +138,9 @@ export class PrismaTournamentsRepository implements TournamentsRepository {
           endDate: record.endDate,
           fee: record.fee.toString(),
           prizePool: record.prizePool.toString(),
-          format: record.format as unknown as TournamentFormat,
+          format: toDomainTournamentFormat(record.format),
           maxParticipants: record.maxParticipants,
-          status: record.status as unknown as TournamentStatus,
+          status: toDomainTournamentStatus(record.status),
           organizerUserId: record.userId,
           gameId: record.gameId,
           createdAt: record.createdAt,
@@ -96,9 +162,9 @@ export class PrismaTournamentsRepository implements TournamentsRepository {
         endDate: p.endDate ? new Date(p.endDate) : null,
         fee: p.fee,
         prizePool: p.prizePool,
-        format: p.format,
+        format: toPrismaTournamentFormat(p.format),
         maxParticipants: p.maxParticipants,
-        status: p.status,
+        status: toPrismaTournamentStatus(p.status),
         userId: p.organizerUserId,
         gameId: p.gameId,
       },
@@ -117,9 +183,9 @@ export class PrismaTournamentsRepository implements TournamentsRepository {
         endDate: p.endDate ? new Date(p.endDate) : null,
         fee: p.fee,
         prizePool: p.prizePool,
-        format: p.format,
+        format: toPrismaTournamentFormat(p.format),
         maxParticipants: p.maxParticipants,
-        status: p.status,
+        status: toPrismaTournamentStatus(p.status),
       },
     });
   }

@@ -12,6 +12,10 @@ import { GetMe } from '@/application/use-cases/auth/getMe';
 import { RequestPasswordReset } from '@/application/use-cases/auth/requestPasswordReset';
 import { ResetPassword } from '@/application/use-cases/auth/resetPassword';
 import { requireAuth } from '@/http/auth/authMiddleware';
+import {
+  apiErrorResponseSchema,
+  noContentSchema,
+} from '@/http/openapi/schemas';
 
 export type AuthRoutesDeps = {
   usersRepository: UsersRepository;
@@ -41,6 +45,62 @@ const resetPasswordBodySchema = z.object({
   password: z.string().min(8),
 });
 
+const registerBodyOpenApiSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['name', 'email', 'password'],
+  properties: {
+    name: { type: 'string', minLength: 1 },
+    email: { type: 'string', format: 'email' },
+    password: { type: 'string', minLength: 8 },
+  },
+  example: {
+    name: 'Mario Rossi',
+    email: 'mario@example.com',
+    password: 'Str0ngP@ssword!',
+  },
+} as const;
+
+const loginBodyOpenApiSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['email', 'password'],
+  properties: {
+    email: { type: 'string', format: 'email' },
+    password: { type: 'string', minLength: 1 },
+  },
+  example: {
+    email: 'mario@example.com',
+    password: 'Str0ngP@ssword!',
+  },
+} as const;
+
+const forgotPasswordBodyOpenApiSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['email'],
+  properties: {
+    email: { type: 'string', format: 'email' },
+  },
+  example: {
+    email: 'mario@example.com',
+  },
+} as const;
+
+const resetPasswordBodyOpenApiSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['token', 'password'],
+  properties: {
+    token: { type: 'string', minLength: 1 },
+    password: { type: 'string', minLength: 8 },
+  },
+  example: {
+    token: 'a2f1c3...reset-token...9d8e7f',
+    password: 'An0therStr0ngP@ss!',
+  },
+} as const;
+
 export async function authRoutes(app: FastifyInstance, deps: AuthRoutesDeps): Promise<void> {
   const registerUser = new RegisterUser(deps.usersRepository, deps.passwordHasher);
   const authenticateUser = new AuthenticateUser(
@@ -60,13 +120,36 @@ export async function authRoutes(app: FastifyInstance, deps: AuthRoutesDeps): Pr
     deps.passwordHasher,
   );
 
-  app.post('/auth/register', async (req, reply) => {
+  app.post(
+    '/auth/register',
+    {
+      schema: {
+        tags: ['Auth'],
+        summary: 'Register a new user',
+        body: registerBodyOpenApiSchema,
+        response: {
+          201: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['userId'],
+            properties: {
+              userId: { type: 'string' },
+            },
+          },
+          400: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
+          500: apiErrorResponseSchema,
+        },
+      },
+    },
+    async (req, reply) => {
     const body = parseBody(req, registerBodySchema);
 
     const result = await registerUser.execute(body);
 
     return reply.status(201).send(result);
-  });
+    },
+  );
 
   app.post(
     '/auth/login',
@@ -75,6 +158,24 @@ export async function authRoutes(app: FastifyInstance, deps: AuthRoutesDeps): Pr
         rateLimit: {
           max: 10,
           timeWindow: '1 minute',
+        },
+      },
+      schema: {
+        tags: ['Auth'],
+        summary: 'Login and get an access token',
+        body: loginBodyOpenApiSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['accessToken'],
+            properties: {
+              accessToken: { type: 'string' },
+            },
+          },
+          400: apiErrorResponseSchema,
+          401: apiErrorResponseSchema,
+          500: apiErrorResponseSchema,
         },
       },
     },
@@ -107,11 +208,39 @@ export async function authRoutes(app: FastifyInstance, deps: AuthRoutesDeps): Pr
     },
   );
 
-  app.get('/me', async (req) => {
+  app.get(
+    '/me',
+    {
+      schema: {
+        tags: ['Auth'],
+        summary: 'Get current user profile',
+        security: [{ bearerAuth: [] }],
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['id', 'name', 'email', 'role', 'createdAt', 'updatedAt'],
+            properties: {
+              id: { type: 'string' },
+              name: { type: 'string' },
+              email: { type: 'string' },
+              role: { type: 'string' },
+              createdAt: { type: 'string' },
+              updatedAt: { type: 'string' },
+            },
+          },
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          500: apiErrorResponseSchema,
+        },
+      },
+    },
+    async (req) => {
     const auth = await requireAuth(req, deps.tokenService);
 
     return getMe.execute({ userId: auth.userId });
-  });
+    },
+  );
 
   app.post(
     '/auth/forgot-password',
@@ -120,6 +249,16 @@ export async function authRoutes(app: FastifyInstance, deps: AuthRoutesDeps): Pr
         rateLimit: {
           max: 5,
           timeWindow: '1 minute',
+        },
+      },
+      schema: {
+        tags: ['Auth'],
+        summary: 'Request a password reset email',
+        body: forgotPasswordBodyOpenApiSchema,
+        response: {
+          204: noContentSchema,
+          400: apiErrorResponseSchema,
+          500: apiErrorResponseSchema,
         },
       },
     },
@@ -147,6 +286,18 @@ export async function authRoutes(app: FastifyInstance, deps: AuthRoutesDeps): Pr
         rateLimit: {
           max: 5,
           timeWindow: '1 minute',
+        },
+      },
+      schema: {
+        tags: ['Auth'],
+        summary: 'Reset password using a reset token',
+        body: resetPasswordBodyOpenApiSchema,
+        response: {
+          204: noContentSchema,
+          400: apiErrorResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          500: apiErrorResponseSchema,
         },
       },
     },
