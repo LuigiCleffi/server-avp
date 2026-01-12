@@ -64,6 +64,18 @@ function validateMoney(raw: string, fieldName: string): string {
   return value;
 }
 
+function validateUuid(raw: string, fieldName: string): string {
+  const value = raw.trim();
+  const uuidV4ish =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  if (!uuidV4ish.test(value)) {
+    throw new DomainValidationError(`${fieldName} must be a valid UUID`);
+  }
+
+  return value;
+}
+
 export class Tournament {
   private constructor(private props: TournamentProps) {}
 
@@ -153,8 +165,8 @@ export class Tournament {
       format: params.format,
       maxParticipants: Tournament.validateMaxParticipants(params.maxParticipants),
       status: params.status ?? TournamentStatus.DRAFT,
-      organizerUserId: params.organizerUserId,
-      gameId: params.gameId,
+      organizerUserId: validateUuid(params.organizerUserId, 'organizerUserId'),
+      gameId: validateUuid(params.gameId, 'gameId'),
       createdAt: now,
       updatedAt: now,
     });

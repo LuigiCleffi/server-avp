@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { DomainError, ForbiddenError } from '@/shared/errors/appErrors';
+import { ForbiddenError, NotFoundError } from '@/shared/errors/appErrors';
 import type { GamesRepository } from '@/application/ports/gamesRepository';
 import type { TournamentsRepository } from '@/application/ports/tournamentsRepository';
 import { Tournament, TournamentFormat } from '@/domain/entities/tournament';
@@ -34,7 +34,7 @@ export class CreateTournament {
 
     const game = await this.gamesRepository.findById(input.gameId);
     if (!game) {
-      throw new DomainError('Game not found');
+      throw new NotFoundError('Game not found');
     }
 
     const tournament = Tournament.createNew({

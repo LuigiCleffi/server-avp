@@ -280,6 +280,7 @@ export async function tournamentRoutes(app: FastifyInstance, deps: TournamentRou
           400: apiErrorResponseSchema,
           401: apiErrorResponseSchema,
           403: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
           422: apiErrorResponseSchema,
           500: apiErrorResponseSchema,
         },
