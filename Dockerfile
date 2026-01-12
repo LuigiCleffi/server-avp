@@ -1,40 +1,24 @@
-# syntax=docker/dockerfile:1
+FROM node:20-alpine3.20 AS base
 
-FROM node:20-alpine AS deps
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
 WORKDIR /app
 
-# Enable pnpm via corepack
-RUN corepack enable
+FROM base AS build
 
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
-
-FROM node:20-alpine AS build
-WORKDIR /app
-RUN corepack enable
-
-COPY --from=deps /app/node_modules ./node_modules
-COPY package.json pnpm-lock.yaml tsconfig.json ./
-COPY prisma ./prisma
-COPY prisma.config.ts ./
-COPY src ./src
-
-# Prisma client generation is optional until code uses it,
-# but keeping it here avoids surprises once Prisma is introduced.
-RUN pnpm exec prisma generate
+COPY package.json .
+RUN pnpm install
+COPY . .
+RUN pnpm run generate
 RUN pnpm run build
 
-FROM node:20-alpine AS runtime
-WORKDIR /app
-ENV NODE_ENV=production
+FROM base
 
-RUN corepack enable
-
-COPY --from=build /app/package.json ./
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/src ./src
-COPY --from=build /app/generated ./generated
-
+COPY --from=build /app/node_modules /app/node_modules
+COPY --from=build /app/dist /app/dist
+COPY --from=build /app/generated /app/generated
+COPY prisma ./prisma
+COPY package.json tsconfig.json ./
 EXPOSE 3000
-CMD ["pnpm", "exec", "tsx", "src/server.ts"]
-
+CMD [ "pnpm", "start" ]

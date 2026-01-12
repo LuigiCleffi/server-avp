@@ -1,0 +1,23 @@
+name: Deploy Dev
+
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+    branches:
+      - dev
+
+jobs:
+  ci-dev:
+    name: build and deploy dev image
+    uses: ./.github/workflows/pipeline.yml
+    with:
+      environment: "dev"
+    secrets:
+      ECR_REGISTRY: ${{ vars.ECR_REGISTRY_DEV }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    permissions:
+      id-token: write
+      contents: read
