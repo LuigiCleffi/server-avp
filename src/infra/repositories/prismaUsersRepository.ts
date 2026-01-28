@@ -1,15 +1,19 @@
 import type { UsersRepository } from '@/application/ports/usersRepository';
 import { User, UserRole } from '@/domain/entities/user';
 import type { Email } from '@/domain/value-objects/email';
-import type { UserRole as PrismaUserRole } from '@/generated/prisma/client';
+import { UserRole as PrismaUserRole } from '@/generated/prisma/client';
 import { prisma } from '../prisma/client';
 
-function toDomainUserRole(role: PrismaUserRole): UserRole {
+function toDomainUserRole(role: string): UserRole {
   switch (role) {
     case 'USER':
       return UserRole.USER;
     case 'ADMIN':
       return UserRole.ADMIN;
+    case 'GAME_CREATOR':
+      return UserRole.GAME_CREATOR;
+    default:
+      return UserRole.USER;
   }
 }
 
@@ -19,6 +23,8 @@ function toPrismaUserRole(role: UserRole): PrismaUserRole {
       return 'USER';
     case UserRole.ADMIN:
       return 'ADMIN';
+    case UserRole.GAME_CREATOR:
+      return 'GAME_CREATOR';
   }
 }
 

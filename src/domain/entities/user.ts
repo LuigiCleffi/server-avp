@@ -5,6 +5,7 @@ import { PasswordHash } from '../value-objects/passwordHash';
 export enum UserRole {
   USER = 'USER',
   ADMIN = 'ADMIN',
+  GAME_CREATOR = 'GAME_CREATOR',
 }
 
 export type UserProps = {
@@ -115,6 +116,15 @@ export class User {
     this.props = {
       ...this.props,
       role: UserRole.ADMIN,
+    };
+    this.touch(now);
+  }
+
+  public promoteToGameCreator(now: Date = new Date()): void {
+    if (this.props.role === UserRole.GAME_CREATOR) return;
+    this.props = {
+      ...this.props,
+      role: UserRole.GAME_CREATOR,
     };
     this.touch(now);
   }

@@ -4,12 +4,19 @@ import { parseBody, parseParams, parseQuery } from '@/http/validation/zod';
 import type { TournamentsRepository } from '@/application/ports/tournamentsRepository';
 import type { TokenService } from '@/application/ports/tokenService';
 import type { GamesRepository } from '@/application/ports/gamesRepository';
+import type { WalletRepository } from '@/application/ports/walletRepository';
+import type { StripeProvider } from '@/application/ports/stripeProvider';
+import type { TournamentPurchasesRepository } from '@/application/ports/tournamentPurchasesRepository';
+import type { ParticipantsRepository } from '@/application/ports/participantsRepository';
+import type { TournamentManagerProvider } from '@/application/ports/tournamentManagerProvider';
 import { TournamentFormat, TournamentStatus } from '@/domain/entities/tournament';
 import { ListTournaments } from '@/application/use-cases/tournaments/listTournaments';
 import { GetTournamentDetails } from '@/application/use-cases/tournaments/getTournamentDetails';
 import { CreateTournament } from '@/application/use-cases/tournaments/createTournament';
 import { UpdateTournament } from '@/application/use-cases/tournaments/updateTournament';
 import { ChangeTournamentStatus } from '@/application/use-cases/tournaments/changeTournamentStatus';
+import { PurchaseTournamentEntry } from '@/application/use-cases/tournaments/purchaseTournamentEntry';
+import { JoinTournament } from '@/application/use-cases/tournaments/joinTournament';
 import { requireAuth } from '@/http/auth/authMiddleware';
 import {
   apiErrorResponseSchema,
@@ -20,6 +27,11 @@ export type TournamentRoutesDeps = {
   tournamentsRepository: TournamentsRepository;
   gamesRepository: GamesRepository;
   tokenService: TokenService;
+  tournamentPurchasesRepository: TournamentPurchasesRepository;
+  participantsRepository: ParticipantsRepository;
+  walletRepository: WalletRepository;
+  stripeProvider: StripeProvider;
+  tournamentManagerProvider?: TournamentManagerProvider;
 };
 
 const listQuerySchema = z.object({
@@ -85,6 +97,18 @@ const updateBodySchema = z
 const changeStatusBodySchema = z.object({
   status: z.nativeEnum(TournamentStatus),
 });
+
+const purchaseBodySchema = z.object({
+  method: z.enum(['AUTO', 'WALLET', 'STRIPE']).optional().default('AUTO'),
+});
+
+const purchaseBodyOpenApiSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    method: { type: 'string', enum: ['AUTO', 'WALLET', 'STRIPE'], default: 'AUTO' },
+  },
+} as const;
 
 const createBodyOpenApiSchema = {
   type: 'object',
@@ -196,6 +220,17 @@ export async function tournamentRoutes(app: FastifyInstance, deps: TournamentRou
   const createTournament = new CreateTournament(deps.tournamentsRepository, deps.gamesRepository);
   const updateTournament = new UpdateTournament(deps.tournamentsRepository);
   const changeTournamentStatus = new ChangeTournamentStatus(deps.tournamentsRepository);
+  const purchaseTournamentEntry = new PurchaseTournamentEntry(
+    deps.tournamentsRepository,
+    deps.tournamentPurchasesRepository,
+    deps.walletRepository,
+    deps.stripeProvider,
+  );
+  const joinTournament = new JoinTournament(
+    deps.tournamentsRepository,
+    deps.tournamentPurchasesRepository,
+    deps.participantsRepository,
+  );
 
   app.get(
     '/tournaments',
@@ -303,6 +338,28 @@ export async function tournamentRoutes(app: FastifyInstance, deps: TournamentRou
       gameId: body.gameId,
     });
 
+    if (deps.tournamentManagerProvider) {
+      try {
+        const game = await deps.gamesRepository.findById(body.gameId);
+        const gameName = game?.name.trim().toLowerCase();
+        const managerGame = gameName === 'league of legends' ? ('League of Legends' as const) : undefined;
+
+        const upstream = await deps.tournamentManagerProvider.createTournament({
+          name: body.name,
+          prize: Number(body.prizePool),
+          maxPlayers: body.maxParticipants,
+          game: managerGame,
+        });
+
+        await deps.tournamentsRepository.setTournamentManagerId({
+          tournamentId: result.id,
+          tournamentManagerId: upstream.id,
+        });
+      } catch (err) {
+        req.log.warn({ err }, 'Tournament manager sync failed');
+      }
+    }
+
     return reply.status(201).send(result);
     },
   );
@@ -374,6 +431,86 @@ export async function tournamentRoutes(app: FastifyInstance, deps: TournamentRou
     });
 
     return reply.status(204).send();
+    },
+  );
+
+  app.post(
+    '/tournaments/:id/purchase',
+    {
+      schema: {
+        tags: ['Tournaments'],
+        summary: 'Purchase tournament entry',
+        security: [{ bearerAuth: [] }],
+        params: idParamsOpenApiSchema,
+        body: purchaseBodyOpenApiSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['purchaseId', 'status'],
+            properties: {
+              purchaseId: { type: 'string' },
+              status: { type: 'string', enum: ['PAID', 'PENDING'] },
+              clientSecret: { type: 'string' },
+            },
+          },
+          400: apiErrorResponseSchema,
+          401: apiErrorResponseSchema,
+          403: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          422: apiErrorResponseSchema,
+          500: apiErrorResponseSchema,
+          503: apiErrorResponseSchema,
+        },
+      },
+    },
+    async (req) => {
+      const actor = await requireAuth(req, deps.tokenService);
+      const params = parseParams(req, idParamsSchema);
+      const body = parseBody(req, purchaseBodySchema);
+
+      return purchaseTournamentEntry.execute({
+        userId: actor.userId,
+        tournamentId: params.id,
+        method: body.method,
+      });
+    },
+  );
+
+  app.post(
+    '/tournaments/:id/join',
+    {
+      schema: {
+        tags: ['Tournaments'],
+        summary: 'Join a tournament (requires paid entry)',
+        security: [{ bearerAuth: [] }],
+        params: idParamsOpenApiSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['joined', 'alreadyJoined'],
+            properties: {
+              joined: { type: 'boolean' },
+              alreadyJoined: { type: 'boolean' },
+            },
+          },
+          400: apiErrorResponseSchema,
+          401: apiErrorResponseSchema,
+          403: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          500: apiErrorResponseSchema,
+        },
+      },
+    },
+    async (req) => {
+      const actor = await requireAuth(req, deps.tokenService);
+      const params = parseParams(req, idParamsSchema);
+
+      return joinTournament.execute({
+        userId: actor.userId,
+        tournamentId: params.id,
+      });
     },
   );
 }
