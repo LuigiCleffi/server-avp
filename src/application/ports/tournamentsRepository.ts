@@ -25,4 +25,6 @@ export interface TournamentsRepository {
   list(filter: ListTournamentsFilter, pagination: PaginationInput): Promise<PaginatedResult<Tournament>>;
   create(tournament: Tournament): Promise<void>;
   save(tournament: Tournament): Promise<void>;
+
+  setTournamentManagerId(input: { tournamentId: string; tournamentManagerId: string }): Promise<void>;
 }

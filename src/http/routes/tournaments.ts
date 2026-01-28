@@ -8,6 +8,7 @@ import type { WalletRepository } from '@/application/ports/walletRepository';
 import type { StripeProvider } from '@/application/ports/stripeProvider';
 import type { TournamentPurchasesRepository } from '@/application/ports/tournamentPurchasesRepository';
 import type { ParticipantsRepository } from '@/application/ports/participantsRepository';
+import type { TournamentManagerProvider } from '@/application/ports/tournamentManagerProvider';
 import { TournamentFormat, TournamentStatus } from '@/domain/entities/tournament';
 import { ListTournaments } from '@/application/use-cases/tournaments/listTournaments';
 import { GetTournamentDetails } from '@/application/use-cases/tournaments/getTournamentDetails';
@@ -30,6 +31,7 @@ export type TournamentRoutesDeps = {
   participantsRepository: ParticipantsRepository;
   walletRepository: WalletRepository;
   stripeProvider: StripeProvider;
+  tournamentManagerProvider?: TournamentManagerProvider;
 };
 
 const listQuerySchema = z.object({
@@ -335,6 +337,28 @@ export async function tournamentRoutes(app: FastifyInstance, deps: TournamentRou
       maxParticipants: body.maxParticipants,
       gameId: body.gameId,
     });
+
+    if (deps.tournamentManagerProvider) {
+      try {
+        const game = await deps.gamesRepository.findById(body.gameId);
+        const gameName = game?.name.trim().toLowerCase();
+        const managerGame = gameName === 'league of legends' ? ('League of Legends' as const) : undefined;
+
+        const upstream = await deps.tournamentManagerProvider.createTournament({
+          name: body.name,
+          prize: Number(body.prizePool),
+          maxPlayers: body.maxParticipants,
+          game: managerGame,
+        });
+
+        await deps.tournamentsRepository.setTournamentManagerId({
+          tournamentId: result.id,
+          tournamentManagerId: upstream.id,
+        });
+      } catch (err) {
+        req.log.warn({ err }, 'Tournament manager sync failed');
+      }
+    }
 
     return reply.status(201).send(result);
     },

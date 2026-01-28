@@ -6,6 +6,8 @@ export type Env = {
   jwtSecret: string;
   stripeSecretKey: string;
   stripeWebhookSecret: string;
+  tournamentManagerBaseUrl: string;
+  tournamentManagerApiKey: string;
   host: string;
   port: number;
 };
@@ -19,6 +21,10 @@ const rawEnvSchema = z.object({
   // Payments (optional until Phase 4 is enabled in an environment)
   STRIPE_SECRET_KEY: z.string().optional().default(''),
   STRIPE_WEBHOOK_SECRET: z.string().optional().default(''),
+
+  // External Tournament Manager (optional)
+  TOURNAMENT_MANAGER_BASE_URL: z.string().optional().default(''),
+  TOURNAMENT_MANAGER_API_KEY: z.string().optional().default(''),
 });
 
 const parsed = rawEnvSchema.safeParse(process.env);
@@ -41,6 +47,8 @@ export const env: Env = {
   jwtSecret: parsed.data.JWT_SECRET,
   stripeSecretKey: parsed.data.STRIPE_SECRET_KEY,
   stripeWebhookSecret: parsed.data.STRIPE_WEBHOOK_SECRET,
+  tournamentManagerBaseUrl: parsed.data.TOURNAMENT_MANAGER_BASE_URL,
+  tournamentManagerApiKey: parsed.data.TOURNAMENT_MANAGER_API_KEY,
   host: parsed.data.HOST,
   port: parsed.data.PORT,
 };

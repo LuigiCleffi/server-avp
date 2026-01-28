@@ -24,6 +24,7 @@ import { PrismaParticipantsRepository } from '@/infra/repositories/prismaPartici
 import { PrismaTournamentRequestsRepository } from '@/infra/repositories/prismaTournamentRequestsRepository';
 import { PrismaCreatorRequestsRepository } from '@/infra/repositories/prismaCreatorRequestsRepository';
 import { StripeProviderImpl } from '@/infra/payments/stripeProvider';
+import { HttpTournamentManagerProvider } from '@/infra/tournamentManager/httpTournamentManagerProvider';
 import { env } from '@/env';
 
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
@@ -37,6 +38,9 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   const tournamentRequestsRepository = new PrismaTournamentRequestsRepository();
   const creatorRequestsRepository = new PrismaCreatorRequestsRepository();
   const stripeProvider = new StripeProviderImpl(env.stripeSecretKey, env.stripeWebhookSecret);
+  const tournamentManagerProvider = env.tournamentManagerBaseUrl
+    ? new HttpTournamentManagerProvider(env.tournamentManagerBaseUrl, env.tournamentManagerApiKey)
+    : undefined;
   const usersRepository = new PrismaUsersRepository();
   const gamesRepository = new PrismaGamesRepository();
   const gameApiKeysRepository = new PrismaGameApiKeysRepository();
@@ -59,6 +63,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     participantsRepository,
     walletRepository,
     stripeProvider,
+    tournamentManagerProvider,
   });
 
   await app.register(requestRoutes, {

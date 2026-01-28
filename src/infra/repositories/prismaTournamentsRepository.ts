@@ -189,4 +189,12 @@ export class PrismaTournamentsRepository implements TournamentsRepository {
       },
     });
   }
+
+  async setTournamentManagerId(input: { tournamentId: string; tournamentManagerId: string }): Promise<void> {
+    await prisma.tournament.update({
+      where: { id: input.tournamentId },
+      data: { tournamentManagerId: input.tournamentManagerId },
+      select: { id: true },
+    });
+  }
 }

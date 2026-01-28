@@ -248,6 +248,7 @@ model Tournament {
   endDate      DateTime?
   fee          Decimal      @db.Decimal(10, 2)
   prizePool    Decimal      @db.Decimal(10, 2)
+  tournamentManagerId String? @map("tournament_manager_id")
   format       TournamentFormat @default(SINGLE_ELIMINATION)
   maxParticipants Int            @map("max_participants")
   status          TournamentStatus @default(SCHEDULED)
