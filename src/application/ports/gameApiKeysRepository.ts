@@ -13,6 +13,10 @@ export type GameApiKeyRecord = {
 export interface GameApiKeysRepository {
   findById(id: string): Promise<GameApiKeyRecord | null>;
 
+  findActiveByClientId(clientId: string): Promise<(GameApiKeyRecord & { secretHash: string }) | null>;
+
+  touchLastUsedAt(id: string): Promise<void>;
+
   create(input: {
     gameId: string;
     clientId: string;

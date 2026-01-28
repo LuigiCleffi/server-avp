@@ -7,6 +7,7 @@ import { webhookRoutes } from './webhooks';
 import { requestRoutes } from './requests';
 import { adminRoutes } from './admin';
 import { gamesRoutes } from './games';
+import { sdkRoutes } from './sdk';
 import { PrismaUsersRepository } from '@/infra/repositories/prismaUsersRepository';
 import { PrismaPasswordResetTokensRepository } from '@/infra/repositories/prismaPasswordResetTokensRepository';
 import { BcryptPasswordHasher } from '@/infra/auth/bcryptPasswordHasher';
@@ -15,6 +16,8 @@ import { ConsoleMailer } from '@/infra/mailer/consoleMailer';
 import { PrismaTournamentsRepository } from '@/infra/repositories/prismaTournamentsRepository';
 import { PrismaGamesRepository } from '@/infra/repositories/prismaGamesRepository';
 import { PrismaGameApiKeysRepository } from '@/infra/repositories/prismaGameApiKeysRepository';
+import { PrismaSdkNoncesRepository } from '@/infra/repositories/prismaSdkNoncesRepository';
+import { PrismaSdkEventsRepository } from '@/infra/repositories/prismaSdkEventsRepository';
 import { PrismaWalletRepository } from '@/infra/repositories/prismaWalletRepository';
 import { PrismaTournamentPurchasesRepository } from '@/infra/repositories/prismaTournamentPurchasesRepository';
 import { PrismaParticipantsRepository } from '@/infra/repositories/prismaParticipantsRepository';
@@ -37,6 +40,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   const usersRepository = new PrismaUsersRepository();
   const gamesRepository = new PrismaGamesRepository();
   const gameApiKeysRepository = new PrismaGameApiKeysRepository();
+  const sdkNoncesRepository = new PrismaSdkNoncesRepository();
+  const sdkEventsRepository = new PrismaSdkEventsRepository();
 
   await app.register(authRoutes, {
     usersRepository,
@@ -87,5 +92,13 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     gamesRepository,
     gameApiKeysRepository,
     secretHasher,
+    sdkEventsRepository,
+  });
+
+  await app.register(sdkRoutes, {
+    gameApiKeysRepository,
+    secretHasher,
+    sdkNoncesRepository,
+    sdkEventsRepository,
   });
 }

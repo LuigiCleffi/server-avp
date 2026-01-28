@@ -90,6 +90,7 @@ export async function registerSwagger(app: FastifyInstance): Promise<void> {
         { name: 'Wallet', description: 'Wallet balances, ledger entries, and top-ups' },
         { name: 'Webhooks', description: 'Payment provider webhooks' },
         { name: 'Games', description: 'Game registry and SDK credentials' },
+        { name: 'SDK', description: 'Game SDK ingestion endpoints' },
       ],
     },
     transformObject(input) {

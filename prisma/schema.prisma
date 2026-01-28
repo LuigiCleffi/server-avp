@@ -185,6 +185,7 @@ model Game {
   createdBy          User?              @relation(fields: [createdById], references: [id])
   createdById        String?            @map("created_by_id") @db.Uuid
   apiKeys            GameApiKey[]
+  sdkEvents          SdkEvent[]
   tournaments        Tournament[]
   tournamentRequests TournamentRequest[]
 
@@ -202,8 +203,41 @@ model GameApiKey {
   revokedAt  DateTime?       @map("revoked_at")
   lastUsedAt DateTime?       @map("last_used_at")
 
+  sdkNonces  SdkRequestNonce[]
+  sdkEvents  SdkEvent[]
+
   @@index([gameId, status])
   @@map("game_api_keys")
+}
+
+model SdkRequestNonce {
+  id        String    @id @default(uuid()) @db.Uuid
+  apiKey    GameApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  apiKeyId  String    @map("api_key_id") @db.Uuid
+  nonce     String
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@unique([apiKeyId, nonce])
+  @@map("sdk_request_nonces")
+}
+
+model SdkEvent {
+  id         String    @id @default(uuid()) @db.Uuid
+  game       Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  gameId     String    @map("game_id") @db.Uuid
+  apiKey     GameApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  apiKeyId   String    @map("api_key_id") @db.Uuid
+  eventId    String    @map("event_id")
+  type       String
+  playerId   String?   @map("player_id")
+  payload    Json
+  occurredAt DateTime  @map("occurred_at")
+  receivedAt DateTime  @default(now()) @map("received_at")
+
+  @@unique([gameId, eventId])
+  @@index([gameId, receivedAt])
+  @@index([gameId, playerId, receivedAt])
+  @@map("sdk_events")
 }
 
 model Tournament {

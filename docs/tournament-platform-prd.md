@@ -482,7 +482,7 @@ Note: keep money values as `Decimal` in DB.
 ### Phase 9 — SDK Data Ingestion (Events → Postgres)
 **Goal:** ingest gameplay events safely and use them to power leaderboards/history.
 
-- [ ] Define SDK contract
+- [x] Define SDK contract
 	- Zod schemas for event types:
 		- `SESSION_STARTED`, `SESSION_ENDED`
 		- `SCORE_UPDATED`
@@ -493,7 +493,7 @@ Note: keep money values as `Decimal` in DB.
 	- Acceptance:
 		- Any malformed event is rejected with a clear `400`.
 
-- [ ] Authentication & anti-replay
+- [x] Authentication & anti-replay
 	- Signature scheme:
 		- HMAC over `timestamp + nonce + rawBody`.
 	- Verify:
@@ -502,20 +502,20 @@ Note: keep money values as `Decimal` in DB.
 	- Acceptance:
 		- Replayed requests are rejected.
 
-- [ ] Idempotency
+- [x] Idempotency
 	- Enforce unique `eventId` per game.
 	- If event already exists, return `200` (idempotent success).
 	- Acceptance:
 		- Retried events do not duplicate records.
 
-- [ ] Persistence
+- [x] Persistence
 	- `SdkEvent` table with indexes:
 		- `(gameId, eventId)` unique
 		- `(gameId, createdAt)` for queries
 	- Acceptance:
 		- Insert performance stays stable under load.
 
-- [ ] Read models
+- [x] Read models
 	- Leaderboard strategy:
 		- Start with query-based computation for MVP.
 		- Add snapshots later (daily/weekly) if needed.

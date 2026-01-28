@@ -38,6 +38,45 @@ export class PrismaGameApiKeysRepository implements GameApiKeysRepository {
     };
   }
 
+  public async findActiveByClientId(
+    clientId: string,
+  ): Promise<(GameApiKeyRecord & { secretHash: string }) | null> {
+    const row = await prisma.gameApiKey.findFirst({
+      where: { clientId, status: 'ACTIVE' },
+      select: {
+        id: true,
+        gameId: true,
+        clientId: true,
+        status: true,
+        createdAt: true,
+        revokedAt: true,
+        lastUsedAt: true,
+        secretHash: true,
+      },
+    });
+
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      gameId: row.gameId,
+      clientId: row.clientId,
+      status: row.status,
+      createdAt: row.createdAt,
+      revokedAt: row.revokedAt,
+      lastUsedAt: row.lastUsedAt,
+      secretHash: row.secretHash,
+    };
+  }
+
+  public async touchLastUsedAt(id: string): Promise<void> {
+    await prisma.gameApiKey.update({
+      where: { id },
+      data: { lastUsedAt: new Date() },
+      select: { id: true },
+    });
+  }
+
   public async create(input: {
     gameId: string;
     clientId: string;
