@@ -2,12 +2,12 @@
   "name": "etourney-back",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
-  "type": "module",
+  "main": "dist/src/server.js",
   "scripts": {
+    "generate": "prisma generate --schema prisma/schema.prisma",
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/server.ts",
-    "start": "node index.js"
+    "start": "node -r tsconfig-paths/register dist/src/server.js"
   },
   "keywords": [],
   "author": "",
@@ -22,8 +22,10 @@
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.3",
     "fastify": "^5.6.2",
+    "fastify-raw-body": "^5.0.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.16.3",
+    "stripe": "^20.2.0",
     "zod": "^4.3.5",
     "zod-to-json-schema": "^3.25.1"
   },

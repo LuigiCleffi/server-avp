@@ -18,6 +18,42 @@ datasource db {
 enum UserRole {
   USER
   ADMIN
+  GAME_CREATOR
+}
+
+enum CreatorRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LedgerEntryType {
+  CREDIT
+  DEBIT
+}
+
+enum PaymentProvider {
+  STRIPE
+  CRYPTO
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELED
+}
+
+enum TournamentPurchaseStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum GameApiKeyStatus {
+  ACTIVE
+  REVOKED
 }
 
 enum MatchType {
@@ -35,13 +71,99 @@ model User {
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   role             UserRole           @default(USER)
+  gamesCreated     Game[]
+  wallet           Wallet?
+  tournamentPurchases TournamentPurchase[]
+  creatorRequests  CreatorRequest[]
   passwordResetTokens PasswordResetToken[]
   tournaments      Tournament[]       // Tournaments created by the user (e.g., as organizer)
   participants     Participant[]      // Tournaments the user participates in
   tournamentRequests TournamentRequest[] // Tournament requests made by the user
   reviewedRequests TournamentRequest[] @relation("ReviewedRequests") // Requests reviewed by admin
+  reviewedCreatorRequests CreatorRequest[] @relation("ReviewedCreatorRequests")
 
   @@map("users")
+}
+
+model CreatorRequest {
+  id            String               @id @default(uuid()) @db.Uuid
+  requestedBy   User                 @relation(fields: [requestedById], references: [id])
+  requestedById String               @map("requested_by_id") @db.Uuid
+  status        CreatorRequestStatus @default(PENDING)
+  adminNotes    String?              @map("admin_notes")
+  reviewedAt    DateTime?            @map("reviewed_at")
+  reviewedBy    User?                @relation("ReviewedCreatorRequests", fields: [reviewedById], references: [id])
+  reviewedById  String?              @map("reviewed_by_id") @db.Uuid
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+
+  @@unique([requestedById])
+  @@map("creator_requests")
+}
+
+model Wallet {
+  id        String   @id @default(uuid()) @db.Uuid
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @unique @map("user_id") @db.Uuid
+  currency  String   @default("USD")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ledgerEntries LedgerEntry[]
+  payments      Payment[]
+
+  @@map("wallets")
+}
+
+model LedgerEntry {
+  id        String          @id @default(uuid()) @db.Uuid
+  wallet    Wallet          @relation(fields: [walletId], references: [id])
+  walletId  String          @map("wallet_id") @db.Uuid
+  type      LedgerEntryType
+  amount    Decimal         @db.Decimal(10, 2)
+  currency  String
+  reason    String
+
+  payment   Payment?        @relation(fields: [paymentId], references: [id])
+  paymentId String?         @unique @map("payment_id") @db.Uuid
+
+  tournamentPurchase   TournamentPurchase? @relation(fields: [tournamentPurchaseId], references: [id])
+  tournamentPurchaseId String?             @unique @map("tournament_purchase_id") @db.Uuid
+
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  @@index([walletId, createdAt])
+  @@map("ledger_entries")
+}
+
+model Payment {
+  id         String          @id @default(uuid()) @db.Uuid
+  wallet     Wallet          @relation(fields: [walletId], references: [id])
+  walletId   String          @map("wallet_id") @db.Uuid
+  provider   PaymentProvider
+  status     PaymentStatus   @default(PENDING)
+  externalId String?         @unique @map("external_id")
+  amount     Decimal         @db.Decimal(10, 2)
+  currency   String
+  metadata   Json?
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+
+  ledgerEntry LedgerEntry?
+
+  @@index([walletId, createdAt])
+  @@map("payments")
+}
+
+model WebhookEvent {
+  id         String          @id @default(uuid()) @db.Uuid
+  provider   PaymentProvider
+  externalId String          @map("external_id")
+  payload    Json
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  @@unique([provider, externalId])
+  @@map("webhook_events")
 }
 
 enum GameGenre {
@@ -60,10 +182,28 @@ model Game {
   description        String?
   genre              GameGenre
   active             Boolean            @default(true)
+  createdBy          User?              @relation(fields: [createdById], references: [id])
+  createdById        String?            @map("created_by_id") @db.Uuid
+  apiKeys            GameApiKey[]
   tournaments        Tournament[]
   tournamentRequests TournamentRequest[]
 
   @@map("games")
+}
+
+model GameApiKey {
+  id         String          @id @default(uuid()) @db.Uuid
+  game       Game            @relation(fields: [gameId], references: [id])
+  gameId     String          @map("game_id") @db.Uuid
+  clientId   String          @unique @map("client_id")
+  secretHash String          @map("secret_hash")
+  status     GameApiKeyStatus @default(ACTIVE)
+  createdAt  DateTime        @default(now()) @map("created_at")
+  revokedAt  DateTime?       @map("revoked_at")
+  lastUsedAt DateTime?       @map("last_used_at")
+
+  @@index([gameId, status])
+  @@map("game_api_keys")
 }
 
 model Tournament {
@@ -85,9 +225,32 @@ model Tournament {
   gameId       String        @map("game_id") @db.Uuid
   participants Participant[]
   matches      Match[]
+  purchases    TournamentPurchase[]
 
   @@map("tournaments")
   @@unique([gameId, name])
+}
+
+model TournamentPurchase {
+  id         String                 @id @default(uuid()) @db.Uuid
+  user       User                   @relation(fields: [userId], references: [id])
+  userId     String                 @map("user_id") @db.Uuid
+  tournament Tournament             @relation(fields: [tournamentId], references: [id])
+  tournamentId String               @map("tournament_id") @db.Uuid
+  status     TournamentPurchaseStatus @default(PENDING)
+
+  provider   PaymentProvider?
+  externalId String?                @unique @map("external_id")
+  paidAt     DateTime?              @map("paid_at")
+
+  createdAt  DateTime               @default(now()) @map("created_at")
+  updatedAt  DateTime               @updatedAt @map("updated_at")
+
+  ledgerEntry LedgerEntry?
+
+  @@unique([userId, tournamentId])
+  @@index([tournamentId, status])
+  @@map("tournament_purchases")
 }
 
 model Participant {

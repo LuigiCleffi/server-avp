@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import Fastify, { type FastifyInstance } from 'fastify';
+import rawBodyPlugin from 'fastify-raw-body';
 import { ZodError } from 'zod';
 import { dbPool } from './infra/db/pool';
 import { apiError } from './http/errors/apiError';
@@ -58,7 +59,15 @@ export async function buildApp(): Promise<FastifyInstance> {
       return reply.status(err.statusCode).send(apiError(err.code, err.message, err.details));
     }
 
+    req.log.error({ err }, 'Request failed with unhandled error');
     return reply.status(500).send(apiError('INTERNAL_ERROR', 'Internal server error'));
+  });
+
+  await app.register(rawBodyPlugin, {
+    field: 'rawBody',
+    global: false,
+    encoding: 'utf8',
+    runFirst: true,
   });
 
   await registerCors(app);

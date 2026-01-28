@@ -328,7 +328,7 @@ Note: keep money values as `Decimal` in DB.
 ### Phase 4 — Wallet (Ledger) + Stripe
 **Goal:** users can top up with Stripe, and the wallet is auditable.
 
-- [] Data model (Prisma)
+- [x] Data model (Prisma)
 	- Add:
 		- `Wallet` (userId unique).
 		- `LedgerEntry` (walletId, type CREDIT/DEBIT, amount Decimal, currency, reason, referenceId, createdAt).
@@ -336,15 +336,17 @@ Note: keep money values as `Decimal` in DB.
 		- `WebhookEvent` (provider, externalId unique, payload JSON) for idempotency.
 	- Acceptance:
 		- Unique constraints prevent double-crediting.
+	- Notes:
+		- Prisma migration exists but must be applied with a running Postgres.
 
-- [] Ports
+- [x] Ports
 	- `WalletRepository`.
 	- `StripeProvider`:
 		- create payment intent, verify webhook.
 	- Acceptance:
 		- Application layer never imports Stripe SDK directly.
 
-- [] Use-cases
+- [x] Use-cases
 	- `GetWallet`:
 		- ensure wallet exists, return balance and currency.
 	- `ListWalletTransactions`.
@@ -355,7 +357,7 @@ Note: keep money values as `Decimal` in DB.
 	- Acceptance:
 		- Retried webhooks do not duplicate credits.
 
-- [] HTTP routes
+- [x] HTTP routes
 	- `GET /wallet` (auth required).
 	- `GET /wallet/transactions`.
 	- `POST /wallet/topup/stripe`.
@@ -392,15 +394,17 @@ Note: keep money values as `Decimal` in DB.
 ### Phase 6 — Paid Tournament Access & Participation
 **Goal:** tournament participation is unlocked by payment.
 
-- [ ] Data model
+- [x] Data model
 	- Add `TournamentPurchase`:
 		- `userId`, `tournamentId` unique
 		- `status` (PENDING/PAID/FAILED/REFUNDED)
 		- `paymentId?` (Stripe/crypto), `paidAt?`
 	- Acceptance:
 		- One purchase per user per tournament.
+	- Notes:
+		- Prisma migration exists but must be applied with a running Postgres.
 
-- [ ] Use-cases
+- [x] Use-cases
 	- `PurchaseTournamentEntry`:
 		- validates tournament exists and status allows purchase.
 		- if wallet has balance: debit + mark paid.
@@ -412,11 +416,11 @@ Note: keep money values as `Decimal` in DB.
 	- Acceptance:
 		- A paid user can join once; unpaid user gets `403`.
 
-- [ ] HTTP routes
+- [x] HTTP routes
 	- `POST /tournaments/:id/purchase`.
 	- `POST /tournaments/:id/join`.
 
-- [ ] Policy rules
+- [x] Policy rules
 	- Anyone can view.
 	- Only paid users can join.
 	- Joining blocked when tournament is RUNNING/COMPLETED/CANCELED.
@@ -424,7 +428,7 @@ Note: keep money values as `Decimal` in DB.
 ### Phase 7 — Admin Approvals (Tournament & Creator)
 **Goal:** admins can control who can create tournaments and who can publish games.
 
-- [ ] Tournament request flow
+- [x] Tournament request flow
 	- Use-cases:
 		- `CreateTournamentRequest` (user).
 		- `ReviewTournamentRequest` (admin approve/reject + notes).
@@ -432,7 +436,7 @@ Note: keep money values as `Decimal` in DB.
 	- Acceptance:
 		- Status changes tracked with reviewer info.
 
-- [ ] Creator approval flow
+- [x] Creator approval flow
 	- Data model option:
 		- Extend `UserRole` or add `UserCapability`.
 	- Use-cases:
@@ -440,8 +444,10 @@ Note: keep money values as `Decimal` in DB.
 		- `ApproveCreatorStatus`.
 	- Acceptance:
 		- Approved user can access game endpoints.
+	- Notes:
+		- Prisma migration exists but must be applied with a running Postgres.
 
-- [ ] HTTP routes
+- [x] HTTP routes
 	- `POST /creator-requests` (user).
 	- `POST /admin/creator-requests/:id/approve`.
 	- `POST /admin/tournament-requests/:id/approve`.
@@ -450,14 +456,14 @@ Note: keep money values as `Decimal` in DB.
 ### Phase 8 — Games & SDK Credentials
 **Goal:** game creators can register games and get SDK keys.
 
-- [ ] Game registration
+- [x] Game registration
 	- Use-case: `CreateGame` (creator only).
 	- Validations:
 		- unique name per game (already in schema).
 	- Acceptance:
 		- A game is created and visible in tournaments.
 
-- [ ] SDK key management
+- [x] SDK key management
 	- Data model:
 		- `GameApiKey` with `clientId`, `secretHash`, `status`, `createdAt`, `lastUsedAt`.
 	- Use-cases:
