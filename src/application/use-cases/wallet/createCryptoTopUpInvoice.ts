@@ -1,36 +1,37 @@
 import type { WalletRepository } from '@/application/ports/walletRepository';
-import type { StripeProvider } from '@/application/ports/stripeProvider';
+import type { CryptoPaymentProvider } from '@/application/ports/cryptoPaymentProvider';
 import { amountToMinorUnits } from './money';
 
-export type CreateStripeTopUpIntentInput = {
+export type CreateCryptoTopUpInvoiceInput = {
   userId: string;
   amount: string;
   currency: string;
 };
 
-export type CreateStripeTopUpIntentOutput = {
+export type CreateCryptoTopUpInvoiceOutput = {
   paymentId: string;
-  clientSecret: string;
+  checkoutUrl?: string;
+  address?: string;
 };
 
-export class CreateStripeTopUpIntent {
+export class CreateCryptoTopUpInvoice {
   constructor(
     private readonly walletRepository: WalletRepository,
-    private readonly stripeProvider: StripeProvider,
+    private readonly cryptoProvider: CryptoPaymentProvider,
   ) {}
 
-  public async execute(input: CreateStripeTopUpIntentInput): Promise<CreateStripeTopUpIntentOutput> {
+  public async execute(input: CreateCryptoTopUpInvoiceInput): Promise<CreateCryptoTopUpInvoiceOutput> {
     const currency = input.currency.trim().toLowerCase();
     const amountMinor = amountToMinorUnits(input.amount, 2);
 
     const { paymentId } = await this.walletRepository.createTopUpPayment({
       userId: input.userId,
-      provider: 'STRIPE',
+      provider: 'CRYPTO',
       amount: input.amount,
       currency,
     });
 
-    const intent = await this.stripeProvider.createTopUpPaymentIntent({
+    const invoice = await this.cryptoProvider.createTopUpInvoice({
       amountMinor,
       currency,
       metadata: {
@@ -41,12 +42,13 @@ export class CreateStripeTopUpIntent {
 
     await this.walletRepository.setPaymentExternalId({
       paymentId,
-      externalId: intent.externalId,
+      externalId: invoice.externalId,
     });
 
     return {
       paymentId,
-      clientSecret: intent.clientSecret,
+      checkoutUrl: invoice.checkoutUrl,
+      address: invoice.address,
     };
   }
 }

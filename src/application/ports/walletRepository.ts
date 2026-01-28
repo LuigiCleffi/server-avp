@@ -37,6 +37,7 @@ export interface WalletRepository {
 
   createTopUpPayment(input: {
     userId: string;
+    provider: 'STRIPE' | 'CRYPTO';
     amount: string;
     currency: string;
   }): Promise<{ paymentId: string }>;

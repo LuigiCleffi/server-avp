@@ -11,6 +11,18 @@ import { registerRateLimit } from './http/plugins/rateLimit';
 import { registerSwagger } from './http/plugins/swagger';
 import { registerRoutes } from './http/routes';
 
+type ErrorWithOptionalStatusCode = {
+  statusCode?: number;
+  code?: string;
+  message?: string;
+};
+
+function getErrorStatusCode(err: unknown): number | undefined {
+  if (!err || typeof err !== 'object') return undefined;
+  const maybe = err as ErrorWithOptionalStatusCode;
+  return typeof maybe.statusCode === 'number' ? maybe.statusCode : undefined;
+}
+
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
     logger: true,
@@ -38,6 +50,19 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   app.setErrorHandler(async (err, req, reply) => {
+    const statusCode = getErrorStatusCode(err);
+    if (statusCode === 413) {
+      return reply
+        .status(413)
+        .send(apiError('PAYLOAD_TOO_LARGE', 'Payload too large'));
+    }
+
+    if (statusCode === 429) {
+      return reply
+        .status(429)
+        .send(apiError('RATE_LIMITED', 'Too many requests'));
+    }
+
     if (err instanceof ZodError) {
       return reply
         .status(400)

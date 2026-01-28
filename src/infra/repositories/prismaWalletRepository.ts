@@ -110,6 +110,7 @@ export class PrismaWalletRepository implements WalletRepository {
 
   public async createTopUpPayment(input: {
     userId: string;
+    provider: 'STRIPE' | 'CRYPTO';
     amount: string;
     currency: string;
   }): Promise<{ paymentId: string }> {
@@ -118,7 +119,7 @@ export class PrismaWalletRepository implements WalletRepository {
     const payment = await prisma.payment.create({
       data: {
         walletId,
-        provider: 'STRIPE',
+        provider: input.provider,
         status: 'PENDING',
         amount: input.amount,
         currency: input.currency,

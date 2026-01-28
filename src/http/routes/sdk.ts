@@ -15,6 +15,8 @@ export type SdkRoutesDeps = {
   sdkEventsRepository: SdkEventsRepository;
 };
 
+const SDK_EVENTS_BODY_LIMIT_BYTES = 64 * 1024;
+
 const sdkHeadersSchema = z.object({
   'x-sdk-client-id': z.string().min(1),
   'x-sdk-secret': z.string().min(1),
@@ -34,6 +36,7 @@ export async function sdkRoutes(app: FastifyInstance, deps: SdkRoutesDeps): Prom
   app.post(
     '/sdk/events',
     {
+      bodyLimit: SDK_EVENTS_BODY_LIMIT_BYTES,
       config: {
         rawBody: true,
         rateLimit: {
@@ -62,6 +65,7 @@ export async function sdkRoutes(app: FastifyInstance, deps: SdkRoutesDeps): Prom
           401: apiErrorResponseSchema,
           409: apiErrorResponseSchema,
           429: apiErrorResponseSchema,
+          413: apiErrorResponseSchema,
           500: apiErrorResponseSchema,
         },
       },
