@@ -1,35 +1,35 @@
 import { NotFoundError } from '@/shared/errors/appErrors';
-import type { UsersRepository } from '@/application/ports/usersRepository';
+import type { AccountsRepository } from '@/application/ports/accountsRepository';
 
 export type GetMeInput = {
   accountId: string;
 };
 
 export type GetMeOutput = {
-  id: string;
+  accountId: string;
   name: string;
   email: string;
-  role: string;
+  accountType: string;
   createdAt: string;
   updatedAt: string;
 };
 
 export class GetMe {
-  constructor(private readonly usersRepository: UsersRepository) {}
+  constructor(private readonly accountsRepository: AccountsRepository) {}
 
   public async execute(input: GetMeInput): Promise<GetMeOutput> {
-    const user = await this.usersRepository.findById(input.accountId);
-    if (!user) {
-      throw new NotFoundError('User not found');
+    const account = await this.accountsRepository.findById(input.accountId);
+    if (!account) {
+      throw new NotFoundError('Account not found');
     }
 
-    const primitives = user.toPrimitives();
+    const primitives = account.toPrimitives();
 
     return {
-      id: primitives.id,
+      accountId: primitives.id,
       name: primitives.name,
       email: primitives.email,
-      role: primitives.role,
+      accountType: primitives.accountType,
       createdAt: primitives.createdAt,
       updatedAt: primitives.updatedAt,
     };

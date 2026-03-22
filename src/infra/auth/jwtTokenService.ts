@@ -9,11 +9,15 @@ const tokenPayloadSchema = z.object({
 });
 
 export class JwtTokenService implements TokenService {
-  constructor(private readonly secret: string) {}
+  constructor(
+    private readonly secret: string,
+    private readonly issuer: string,
+  ) {}
 
   async signAccessToken(payload: TokenPayload, expiresInSeconds: number): Promise<string> {
     return jwt.sign(payload, this.secret, {
       algorithm: 'HS256',
+      issuer: this.issuer,
       expiresIn: expiresInSeconds,
     });
   }
@@ -22,6 +26,7 @@ export class JwtTokenService implements TokenService {
     try {
       const decoded = jwt.verify(token, this.secret, {
         algorithms: ['HS256'],
+        issuer: this.issuer,
       });
 
       if (typeof decoded !== 'object' || decoded === null) {
