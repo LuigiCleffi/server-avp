@@ -2,24 +2,24 @@ import { DomainValidationError } from '../errors/domainValidationError';
 import { Email } from '../value-objects/email';
 import { PasswordHash } from '../value-objects/passwordHash';
 
-export enum UserRole {
-  USER = 'USER',
+export enum AccountType {
+  PLAYER = 'PLAYER',
   ADMIN = 'ADMIN',
-  GAME_CREATOR = 'GAME_CREATOR',
+  ORGANIZER = 'ORGANIZER',
 }
 
-export type UserProps = {
+export type AccountProps = {
   id: string;
   name: string;
   email: Email;
   passwordHash: PasswordHash;
-  role: UserRole;
+  accountType: AccountType;
   createdAt: Date;
   updatedAt: Date;
 };
 
-export class User {
-  private constructor(private props: UserProps) {}
+export class Account {
+  private constructor(private props: AccountProps) {}
 
   private static validateName(raw: string): string {
     const name = raw.trim();
@@ -27,6 +27,15 @@ export class User {
       throw new DomainValidationError('Name is required');
     }
     return name;
+  }
+
+  private static deriveNameFromEmail(email: string): string {
+    const localPart = email.split('@')[0] ?? '';
+    const candidate = localPart.trim();
+    if (candidate.length > 0) {
+      return candidate;
+    }
+    return 'account';
   }
 
   private touch(now: Date): void {
@@ -38,22 +47,26 @@ export class User {
 
   public static createNew(params: {
     id: string;
-    name: string;
+    name?: string;
     email: string;
     passwordHash: string;
-    role?: UserRole;
+    accountType?: AccountType;
     now?: Date;
-  }): User {
+  }): Account {
     const now = params.now ?? new Date();
 
-    const name = User.validateName(params.name);
+    const name = Account.validateName(
+      params.name && params.name.trim().length > 0
+        ? params.name
+        : Account.deriveNameFromEmail(params.email),
+    );
 
-    return new User({
+    return new Account({
       id: params.id,
       name,
       email: Email.create(params.email),
       passwordHash: PasswordHash.create(params.passwordHash),
-      role: params.role ?? UserRole.USER,
+      accountType: params.accountType ?? AccountType.PLAYER,
       createdAt: now,
       updatedAt: now,
     });
@@ -64,16 +77,16 @@ export class User {
     name: string;
     email: string;
     passwordHash: string;
-    role: UserRole;
+    accountType: AccountType;
     createdAt: Date;
     updatedAt: Date;
-  }): User {
-    return new User({
+  }): Account {
+    return new Account({
       id: props.id,
-      name: User.validateName(props.name),
+      name: Account.validateName(props.name),
       email: Email.create(props.email),
       passwordHash: PasswordHash.create(props.passwordHash),
-      role: props.role,
+      accountType: props.accountType,
       createdAt: props.createdAt,
       updatedAt: props.updatedAt,
     });
@@ -81,26 +94,6 @@ export class User {
 
   public get id(): string {
     return this.props.id;
-  }
-
-  public get role(): UserRole {
-    return this.props.role;
-  }
-
-  public changeName(newName: string, now: Date = new Date()): void {
-    this.props = {
-      ...this.props,
-      name: User.validateName(newName),
-    };
-    this.touch(now);
-  }
-
-  public changeEmail(newEmail: string, now: Date = new Date()): void {
-    this.props = {
-      ...this.props,
-      email: Email.create(newEmail),
-    };
-    this.touch(now);
   }
 
   public changePasswordHash(newPasswordHash: string, now: Date = new Date()): void {
@@ -111,39 +104,12 @@ export class User {
     this.touch(now);
   }
 
-  public promoteToAdmin(now: Date = new Date()): void {
-    if (this.props.role === UserRole.ADMIN) return;
-    this.props = {
-      ...this.props,
-      role: UserRole.ADMIN,
-    };
-    this.touch(now);
-  }
-
-  public promoteToGameCreator(now: Date = new Date()): void {
-    if (this.props.role === UserRole.GAME_CREATOR) return;
-    this.props = {
-      ...this.props,
-      role: UserRole.GAME_CREATOR,
-    };
-    this.touch(now);
-  }
-
-  public demoteToUser(now: Date = new Date()): void {
-    if (this.props.role === UserRole.USER) return;
-    this.props = {
-      ...this.props,
-      role: UserRole.USER,
-    };
-    this.touch(now);
-  }
-
   public toPrimitives(): {
     id: string;
     name: string;
     email: string;
     passwordHash: string;
-    role: UserRole;
+    accountType: AccountType;
     createdAt: string;
     updatedAt: string;
   } {
@@ -152,7 +118,7 @@ export class User {
       name: this.props.name,
       email: this.props.email.toString(),
       passwordHash: this.props.passwordHash.toString(),
-      role: this.props.role,
+      accountType: this.props.accountType,
       createdAt: this.props.createdAt.toISOString(),
       updatedAt: this.props.updatedAt.toISOString(),
     };

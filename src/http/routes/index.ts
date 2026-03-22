@@ -1,7 +1,6 @@
 import type { FastifyInstance } from 'fastify';
-import { healthRoutes } from './health';
 import { authRoutes } from './auth';
-import { PrismaUsersRepository } from '@/infra/repositories/prismaUsersRepository';
+import { PrismaAccountsRepository } from '@/infra/repositories/prismaAccountsRepository';
 import { PrismaPasswordResetTokensRepository } from '@/infra/repositories/prismaPasswordResetTokensRepository';
 import { BcryptPasswordHasher } from '@/infra/auth/bcryptPasswordHasher';
 import { JwtTokenService } from '@/infra/auth/jwtTokenService';
@@ -9,14 +8,12 @@ import { ConsoleMailer } from '@/infra/mailer/consoleMailer';
 import { env } from '@/env';
 
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
-  await app.register(healthRoutes);
-
-  const tokenService = new JwtTokenService(env.jwtSecret);
+  const tokenService = new JwtTokenService(env.jwtSecret, env.jwtIssuer);
   const secretHasher = new BcryptPasswordHasher();
-  const usersRepository = new PrismaUsersRepository();
+  const accountsRepository = new PrismaAccountsRepository();
 
   await app.register(authRoutes, {
-    usersRepository,
+    accountsRepository,
     passwordResetTokensRepository: new PrismaPasswordResetTokensRepository(),
     passwordHasher: secretHasher,
     tokenService,

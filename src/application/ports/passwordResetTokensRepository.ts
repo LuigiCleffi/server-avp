@@ -1,6 +1,6 @@
 export type PasswordResetTokenRecord = {
   id: string;
-  userId: string;
+  accountId: string;
   tokenHash: string;
   expiresAt: Date;
   usedAt: Date | null;
@@ -8,7 +8,7 @@ export type PasswordResetTokenRecord = {
 };
 
 export interface PasswordResetTokensRepository {
-  create(input: { userId: string; tokenHash: string; expiresAt: Date }): Promise<{ id: string }>;
+  create(input: { accountId: string; tokenHash: string; expiresAt: Date }): Promise<{ id: string }>;
   findByTokenHash(tokenHash: string): Promise<PasswordResetTokenRecord | null>;
   markUsed(id: string, usedAt: Date): Promise<void>;
 }

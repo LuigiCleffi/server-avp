@@ -10,7 +10,6 @@ const authHeaderSchema = z
 
 export type AuthContext = {
   accountId: string;
-  userId: string;
   role: string;
 };
 
@@ -26,7 +25,6 @@ export async function requireAuth(req: FastifyRequest, tokenService: TokenServic
 
   return {
     accountId: payload.account_id,
-    userId: payload.account_id,
     role: payload.role,
   };
 }

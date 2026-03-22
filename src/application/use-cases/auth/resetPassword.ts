@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { AuthError, NotFoundError } from '@/shared/errors/appErrors';
 import type { PasswordHasher } from '@/application/ports/passwordHasher';
-import type { UsersRepository } from '@/application/ports/usersRepository';
+import type { AccountsRepository } from '@/application/ports/accountsRepository';
 import type { PasswordResetTokensRepository } from '@/application/ports/passwordResetTokensRepository';
 
 export type ResetPasswordInput = {
@@ -12,7 +12,7 @@ export type ResetPasswordInput = {
 export class ResetPassword {
   constructor(
     private readonly passwordResetTokensRepository: PasswordResetTokensRepository,
-    private readonly usersRepository: UsersRepository,
+    private readonly accountsRepository: AccountsRepository,
     private readonly passwordHasher: PasswordHasher,
   ) {}
 
@@ -33,15 +33,15 @@ export class ResetPassword {
       throw new AuthError('Invalid or expired reset token');
     }
 
-    const user = await this.usersRepository.findById(record.userId);
-    if (!user) {
-      throw new NotFoundError('User not found');
+    const account = await this.accountsRepository.findById(record.accountId);
+    if (!account) {
+      throw new NotFoundError('Account not found');
     }
 
     const newPasswordHash = await this.passwordHasher.hash(input.password);
-    user.changePasswordHash(newPasswordHash, now);
+    account.changePasswordHash(newPasswordHash, now);
 
-    await this.usersRepository.save(user);
+    await this.accountsRepository.save(account);
     await this.passwordResetTokensRepository.markUsed(record.id, now);
   }
 }
