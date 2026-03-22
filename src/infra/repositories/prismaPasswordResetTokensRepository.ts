@@ -5,10 +5,10 @@ import type {
 import { prisma } from '@/infra/prisma/client';
 
 export class PrismaPasswordResetTokensRepository implements PasswordResetTokensRepository {
-  async create(input: { userId: string; tokenHash: string; expiresAt: Date }): Promise<{ id: string }> {
+  async create(input: { accountId: string; tokenHash: string; expiresAt: Date }): Promise<{ id: string }> {
     const record = await prisma.passwordResetToken.create({
       data: {
-        userId: input.userId,
+        accountId: input.accountId,
         tokenHash: input.tokenHash,
         expiresAt: input.expiresAt,
       },
@@ -27,7 +27,7 @@ export class PrismaPasswordResetTokensRepository implements PasswordResetTokensR
 
     return {
       id: record.id,
-      userId: record.userId,
+      accountId: record.accountId,
       tokenHash: record.tokenHash,
       expiresAt: record.expiresAt,
       usedAt: record.usedAt,

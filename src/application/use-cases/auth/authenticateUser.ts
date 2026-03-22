@@ -2,7 +2,7 @@ import { AuthError } from '@/shared/errors/appErrors';
 import { Email } from '@/domain/value-objects/email';
 import type { PasswordHasher } from '@/application/ports/passwordHasher';
 import type { TokenService } from '@/application/ports/tokenService';
-import type { UsersRepository } from '@/application/ports/usersRepository';
+import type { AccountsRepository } from '@/application/ports/accountsRepository';
 
 export type AuthenticateUserInput = {
   email: string;
@@ -10,12 +10,12 @@ export type AuthenticateUserInput = {
 };
 
 export type AuthenticateUserOutput = {
-  accessToken: string;
+  token: string;
 };
 
 export class AuthenticateUser {
   constructor(
-    private readonly usersRepository: UsersRepository,
+    private readonly accountsRepository: AccountsRepository,
     private readonly passwordHasher: PasswordHasher,
     private readonly tokenService: TokenService,
     private readonly accessTokenTtlSeconds: number = 60 * 60,
@@ -24,22 +24,22 @@ export class AuthenticateUser {
   public async execute(input: AuthenticateUserInput): Promise<AuthenticateUserOutput> {
     const email = Email.create(input.email);
 
-    const user = await this.usersRepository.findByEmail(email);
-    if (!user) {
+    const account = await this.accountsRepository.findByEmail(email);
+    if (!account) {
       throw new AuthError('Invalid credentials');
     }
 
-    const primitives = user.toPrimitives();
+    const primitives = account.toPrimitives();
     const ok = await this.passwordHasher.compare(input.password, primitives.passwordHash);
     if (!ok) {
       throw new AuthError('Invalid credentials');
     }
 
     const accessToken = await this.tokenService.signAccessToken(
-      { account_id: primitives.id, role: primitives.role },
+      { account_id: primitives.id, role: primitives.accountType },
       this.accessTokenTtlSeconds,
     );
 
-    return { accessToken };
+    return { token: accessToken };
   }
 }

@@ -18,7 +18,8 @@ services:
       HOST: 0.0.0.0
       PORT: 3000
       DATABASE_URL: postgresql://etourney:etourney_psw!@db:5432/etourney_db?schema=public
-      JWT_SECRET: change-me
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER}
     ports:
       - '3000:3000'
     depends_on:

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { parseBody } from '@/http/validation/zod';
-import type { UsersRepository } from '@/application/ports/usersRepository';
+import type { AccountsRepository } from '@/application/ports/accountsRepository';
 import type { PasswordHasher } from '@/application/ports/passwordHasher';
 import type { TokenService } from '@/application/ports/tokenService';
 import type { PasswordResetTokensRepository } from '@/application/ports/passwordResetTokensRepository';
@@ -18,7 +18,7 @@ import {
 } from '@/http/openapi/schemas';
 
 export type AuthRoutesDeps = {
-  usersRepository: UsersRepository;
+  accountsRepository: AccountsRepository;
   passwordHasher: PasswordHasher;
   tokenService: TokenService;
   passwordResetTokensRepository: PasswordResetTokensRepository;
@@ -26,18 +26,18 @@ export type AuthRoutesDeps = {
 };
 
 const registerBodySchema = z.object({
-  name: z.string().min(1),
-  email: z.string().email(),
+  name: z.string().min(1).optional(),
+  email: z.email(),
   password: z.string().min(8),
 });
 
 const loginBodySchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().min(1),
 });
 
 const forgotPasswordBodySchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
 });
 
 const resetPasswordBodySchema = z.object({
@@ -48,7 +48,7 @@ const resetPasswordBodySchema = z.object({
 const registerBodyOpenApiSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['name', 'email', 'password'],
+  required: ['email', 'password'],
   properties: {
     name: { type: 'string', minLength: 1 },
     email: { type: 'string', format: 'email' },
@@ -102,21 +102,21 @@ const resetPasswordBodyOpenApiSchema = {
 } as const;
 
 export async function authRoutes(app: FastifyInstance, deps: AuthRoutesDeps): Promise<void> {
-  const registerUser = new RegisterUser(deps.usersRepository, deps.passwordHasher);
+  const registerUser = new RegisterUser(deps.accountsRepository, deps.passwordHasher);
   const authenticateUser = new AuthenticateUser(
-    deps.usersRepository,
+    deps.accountsRepository,
     deps.passwordHasher,
     deps.tokenService,
   );
-  const getMe = new GetMe(deps.usersRepository);
+  const getMe = new GetMe(deps.accountsRepository);
   const requestPasswordReset = new RequestPasswordReset(
-    deps.usersRepository,
+    deps.accountsRepository,
     deps.passwordResetTokensRepository,
     deps.mailer,
   );
   const resetPassword = new ResetPassword(
     deps.passwordResetTokensRepository,
-    deps.usersRepository,
+    deps.accountsRepository,
     deps.passwordHasher,
   );
 
@@ -125,15 +125,15 @@ export async function authRoutes(app: FastifyInstance, deps: AuthRoutesDeps): Pr
     {
       schema: {
         tags: ['Auth'],
-        summary: 'Register a new user',
+        summary: 'Register a new account',
         body: registerBodyOpenApiSchema,
         response: {
           201: {
             type: 'object',
             additionalProperties: false,
-            required: ['userId'],
+            required: ['accountId'],
             properties: {
-              userId: { type: 'string' },
+              accountId: { type: 'string' },
             },
           },
           400: apiErrorResponseSchema,
@@ -168,9 +168,9 @@ export async function authRoutes(app: FastifyInstance, deps: AuthRoutesDeps): Pr
           200: {
             type: 'object',
             additionalProperties: false,
-            required: ['accessToken'],
+            required: ['token'],
             properties: {
-              accessToken: {
+              token: {
                 type: 'string',
                 description: 'JWT access token. Payload includes account_id and role claims.',
               },
@@ -212,22 +212,22 @@ export async function authRoutes(app: FastifyInstance, deps: AuthRoutesDeps): Pr
   );
 
   app.get(
-    '/me',
+    '/auth/me',
     {
       schema: {
         tags: ['Auth'],
-        summary: 'Get current user profile',
+        summary: 'Get current account profile',
         security: [{ bearerAuth: [] }],
         response: {
           200: {
             type: 'object',
             additionalProperties: false,
-            required: ['id', 'name', 'email', 'role', 'createdAt', 'updatedAt'],
+            required: ['accountId', 'name', 'email', 'accountType', 'createdAt', 'updatedAt'],
             properties: {
-              id: { type: 'string' },
+              accountId: { type: 'string' },
               name: { type: 'string' },
               email: { type: 'string' },
-              role: { type: 'string' },
+              accountType: { type: 'string' },
               createdAt: { type: 'string' },
               updatedAt: { type: 'string' },
             },

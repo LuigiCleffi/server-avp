@@ -4,10 +4,7 @@ import { z } from 'zod';
 export type Env = {
   databaseUrl: string;
   jwtSecret: string;
-  stripeSecretKey: string;
-  stripeWebhookSecret: string;
-  tournamentManagerBaseUrl: string;
-  tournamentManagerApiKey: string;
+  jwtIssuer: string;
   host: string;
   port: number;
 };
@@ -15,16 +12,9 @@ export type Env = {
 const rawEnvSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   JWT_SECRET: z.string().min(1, 'JWT_SECRET is required'),
+  JWT_ISSUER: z.string().min(1).optional().default('etourney-games'),
   HOST: z.string().min(1).optional().default('0.0.0.0'),
   PORT: z.coerce.number().int().positive().optional().default(3000),
-
-  // Payments (optional until Phase 4 is enabled in an environment)
-  STRIPE_SECRET_KEY: z.string().optional().default(''),
-  STRIPE_WEBHOOK_SECRET: z.string().optional().default(''),
-
-  // External Tournament Manager (optional)
-  TOURNAMENT_MANAGER_BASE_URL: z.string().optional().default(''),
-  TOURNAMENT_MANAGER_API_KEY: z.string().optional().default(''),
 });
 
 const parsed = rawEnvSchema.safeParse(process.env);
@@ -45,10 +35,7 @@ if (!parsed.success) {
 export const env: Env = {
   databaseUrl: parsed.data.DATABASE_URL,
   jwtSecret: parsed.data.JWT_SECRET,
-  stripeSecretKey: parsed.data.STRIPE_SECRET_KEY,
-  stripeWebhookSecret: parsed.data.STRIPE_WEBHOOK_SECRET,
-  tournamentManagerBaseUrl: parsed.data.TOURNAMENT_MANAGER_BASE_URL,
-  tournamentManagerApiKey: parsed.data.TOURNAMENT_MANAGER_API_KEY,
+  jwtIssuer: parsed.data.JWT_ISSUER,
   host: parsed.data.HOST,
   port: parsed.data.PORT,
 };
