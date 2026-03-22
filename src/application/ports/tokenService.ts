@@ -1,7 +1,7 @@
 export type AccessToken = string;
 
 export type TokenPayload = {
-  sub: string;
+  account_id: string;
   role: string;
 };
 

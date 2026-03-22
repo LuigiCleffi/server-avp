@@ -9,6 +9,7 @@ const authHeaderSchema = z
   .regex(/^Bearer\s.+$/, 'Invalid Authorization header');
 
 export type AuthContext = {
+  accountId: string;
   userId: string;
   role: string;
 };
@@ -23,5 +24,9 @@ export async function requireAuth(req: FastifyRequest, tokenService: TokenServic
   const token = parsed.data.replace(/^Bearer\s/, '');
   const payload = await tokenService.verifyAccessToken(token);
 
-  return { userId: payload.sub, role: payload.role };
+  return {
+    accountId: payload.account_id,
+    userId: payload.account_id,
+    role: payload.role,
+  };
 }

@@ -68,8 +68,9 @@ export async function registerSwagger(app: FastifyInstance): Promise<void> {
   await app.register(swagger, {
     openapi: {
       info: {
-        title: 'eTourneys API',
-        description: 'API documentation for the eTourneys backend.',
+        title: 'eTourneys Auth API',
+        description:
+          'Authentication-focused API documentation. Access tokens are JWTs that include the account_id claim.',
         version: '1.0.0',
       },
       components: {
@@ -84,13 +85,6 @@ export async function registerSwagger(app: FastifyInstance): Promise<void> {
       tags: [
         { name: 'Health', description: 'Service health and readiness checks' },
         { name: 'Auth', description: 'Authentication and user identity' },
-        { name: 'Tournaments', description: 'Tournament browsing and management' },
-        { name: 'Requests', description: 'User-submitted tournament/creator requests' },
-        { name: 'Admin', description: 'Admin moderation and approvals' },
-        { name: 'Wallet', description: 'Wallet balances, ledger entries, and top-ups' },
-        { name: 'Webhooks', description: 'Payment provider webhooks' },
-        { name: 'Games', description: 'Game registry and SDK credentials' },
-        { name: 'SDK', description: 'Game SDK ingestion endpoints' },
       ],
     },
     transformObject(input) {

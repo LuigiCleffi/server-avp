@@ -36,7 +36,7 @@ export class AuthenticateUser {
     }
 
     const accessToken = await this.tokenService.signAccessToken(
-      { sub: primitives.id, role: primitives.role },
+      { account_id: primitives.id, role: primitives.role },
       this.accessTokenTtlSeconds,
     );
 

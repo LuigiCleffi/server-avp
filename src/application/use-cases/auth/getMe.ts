@@ -2,7 +2,7 @@ import { NotFoundError } from '@/shared/errors/appErrors';
 import type { UsersRepository } from '@/application/ports/usersRepository';
 
 export type GetMeInput = {
-  userId: string;
+  accountId: string;
 };
 
 export type GetMeOutput = {
@@ -18,7 +18,7 @@ export class GetMe {
   constructor(private readonly usersRepository: UsersRepository) {}
 
   public async execute(input: GetMeInput): Promise<GetMeOutput> {
-    const user = await this.usersRepository.findById(input.userId);
+    const user = await this.usersRepository.findById(input.accountId);
     if (!user) {
       throw new NotFoundError('User not found');
     }

@@ -162,7 +162,7 @@ export async function authRoutes(app: FastifyInstance, deps: AuthRoutesDeps): Pr
       },
       schema: {
         tags: ['Auth'],
-        summary: 'Login and get an access token',
+        summary: 'Login and get an access token (JWT includes account_id claim)',
         body: loginBodyOpenApiSchema,
         response: {
           200: {
@@ -170,7 +170,10 @@ export async function authRoutes(app: FastifyInstance, deps: AuthRoutesDeps): Pr
             additionalProperties: false,
             required: ['accessToken'],
             properties: {
-              accessToken: { type: 'string' },
+              accessToken: {
+                type: 'string',
+                description: 'JWT access token. Payload includes account_id and role claims.',
+              },
             },
           },
           400: apiErrorResponseSchema,
@@ -236,9 +239,9 @@ export async function authRoutes(app: FastifyInstance, deps: AuthRoutesDeps): Pr
       },
     },
     async (req) => {
-    const auth = await requireAuth(req, deps.tokenService);
+      const auth = await requireAuth(req, deps.tokenService);
 
-    return getMe.execute({ userId: auth.userId });
+      return getMe.execute({ accountId: auth.accountId });
     },
   );
 

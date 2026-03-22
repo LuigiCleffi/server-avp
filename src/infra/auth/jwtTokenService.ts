@@ -4,7 +4,7 @@ import type { TokenPayload, TokenService } from '@/application/ports/tokenServic
 import { AuthError } from '@/shared/errors/appErrors';
 
 const tokenPayloadSchema = z.object({
-  sub: z.string().min(1),
+  account_id: z.string().min(1),
   role: z.string().min(1),
 });
 
