@@ -13,6 +13,7 @@ services:
 
   api:
     build: .
+    profiles: ['prod']
     restart: unless-stopped
     environment:
       HOST: 0.0.0.0
