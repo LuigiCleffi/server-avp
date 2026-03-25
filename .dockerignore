@@ -1,17 +1,28 @@
+# Node modules
 node_modules
-pnpm-store
-.pnpm-store
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.DS_Store
+
+# Git files
 .git
 .gitignore
 
+# Build output
 dist
+build
+
 coverage
 
+# Environment files
 .env
 
 # Prisma
 prisma/migrations
+
+# Dockerfile and other Docker-related files
+Dockerfile*
+.dockerignore
+
+# Logs
+*.log
+
+
+*.md
