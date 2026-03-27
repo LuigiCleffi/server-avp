@@ -1,4 +1,4 @@
-# eTourney Auth API PRD (Backend)
+# avp Auth API PRD (Backend)
 
 ## Overview
 

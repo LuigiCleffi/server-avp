@@ -3,9 +3,9 @@ services:
     image: bitnami/postgresql:latest
     restart: unless-stopped
     environment:
-      POSTGRES_USER: etourney
-      POSTGRES_PASSWORD: etourney_psw!
-      POSTGRES_DB: etourney_db
+      POSTGRES_USER: avp
+      POSTGRES_PASSWORD: avp_psw!
+      POSTGRES_DB: avp_db
     ports:
       - '5432:5432'
     volumes:
@@ -18,9 +18,8 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: 3000
-      DATABASE_URL: postgresql://etourney:etourney_psw!@db:5432/etourney_db?schema=public
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_ISSUER: ${JWT_ISSUER}
+      DATABASE_URL: postgresql://avp:avp_psw!@db:5432/avp_db?schema=public
+      JWT_SECRET: change-me
     ports:
       - '3000:3000'
     depends_on:

@@ -44,3 +44,33 @@ model PasswordResetToken {
   @@index([accountId])
   @@map("password_reset_tokens")
 }
+
+model MercadoLivreCredential {
+  sellerId     String   @id @map("seller_id")
+  accessToken  String   @map("access_token")
+  refreshToken String   @map("refresh_token")
+  expiresAt    DateTime @map("expires_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("ml_credentials")
+}
+
+model MercadoLivreOrder {
+  orderId      BigInt    @id @map("order_id")
+  status       String
+  totalAmount  Decimal   @map("total_amount") @db.Decimal(18, 2)
+  items        Json
+  shippingId   BigInt?   @map("shipping_id")
+  packId       BigInt?   @map("pack_id")
+  nfeStatus    String    @default("pending") @map("nfe_status")
+  rawPayload   Json?     @map("raw_payload")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([shippingId])
+  @@index([packId])
+  @@index([nfeStatus])
+  @@map("ml_orders")
+}

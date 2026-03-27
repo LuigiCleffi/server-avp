@@ -1,0 +1,200 @@
+### Mercado Livre API Testing
+
+# ============================================================================
+# IMPORTANT: Use the latest OAuth values from your .env
+# ============================================================================
+# The authorization code is one-time use and short-lived.
+# For stable integrations, always persist the refresh_token too.
+# ============================================================================
+@baseUrl = http://localhost:3000
+@clientId = {{$dotenv MERCADO_LIVRE_CLIENT_ID}}
+@clientSecret = {{$dotenv MERCADO_LIVRE_CLIENT_SECRET}}
+@redirectUri = {{$dotenv MERCADO_LIVRE_REDIRECT_URI}}
+@accessToken = {{$dotenv MERCADO_LIVRE_ACCESS_TOKEN}}
+@refreshToken = {{$dotenv MERCADO_LIVRE_REFRESH_TOKEN}}
+@authCode = {{$dotenv MERCADO_LIVRE_CLIENT_CODE}}
+
+### Get Mercado Livre authorization code
+GET https://auth.mercadolivre.com.br/authorization?response_type=&client_id=YOUR_CLIENT_ID&redirect_uri=YOUR_REDIRECT_URI
+
+
+
+# ============================================================================
+# TEST 0A: Exchange authorization code for token
+# ============================================================================
+POST https://api.mercadolibre.com/oauth/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code&client_id={{clientId}}&client_secret={{clientSecret}}&code={{authCode}}&redirect_uri={{redirectUri}}
+
+###
+
+# ============================================================================
+# TEST 0B: Refresh access token
+# ============================================================================
+POST https://api.mercadolibre.com/oauth/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=refresh_token&client_id={{clientId}}&client_secret={{clientSecret}}&refresh_token={{refreshToken}}
+
+###
+
+# ============================================================================
+# TEST 0C: Validate token owner
+# ============================================================================
+GET https://api.mercadolibre.com/users/me
+Authorization: Bearer {{accessToken}}
+
+# ============================================================================
+# TEST 1: Health Check (Your App)
+# ============================================================================
+GET {{baseUrl}}/health
+
+###
+
+# ============================================================================
+# TEST 2: Search Products
+# ============================================================================
+# Searches for products on Mercado Livre
+# Query parameters:
+#   - q: search term (required)
+#   - limit: number of results (optional, default 50)
+#   - offset: pagination offset (optional, default 0)
+#   - sort: price_asc | price_desc | relevance (optional)
+GET https://api.mercadolibre.com/sites/MLB/search?q=notebook&limit=10&offset=0&sort=price_asc
+Authorization: Bearer {{accessToken}}
+
+###
+
+# ============================================================================
+# TEST 3: Get Product by ID
+# ============================================================================
+# Replace MLB123456789 with an actual product ID from search results
+GET https://api.mercadolibre.com/items/MLB123456789
+Authorization: Bearer {{accessToken}}
+
+###
+
+# ============================================================================
+# TEST 4: Get Seller Information
+# ============================================================================
+# Replace 123456 with an actual seller ID
+GET https://api.mercadolibre.com/users/123456
+Authorization: Bearer {{accessToken}}
+
+###
+
+# ============================================================================
+# TEST 5: Get Authenticated User
+# ============================================================================
+# Get information about the authenticated user (yourself)
+GET https://api.mercadolibre.com/users/me
+Authorization: Bearer {{accessToken}}
+
+###
+
+# ============================================================================
+# TEST 6: Get All Categories
+# ============================================================================
+# Get list of all product categories in Brazil (MLB)
+GET https://api.mercadolibre.com/sites/MLB/categories
+Authorization: Bearer {{accessToken}}
+
+###
+
+# ============================================================================
+# TEST 7: Get Category Details
+# ============================================================================
+# Replace MLB5672 with an actual category ID
+GET https://api.mercadolibre.com/categories/MLB5672
+Authorization: Bearer {{accessToken}}
+
+###
+
+# ============================================================================
+# TEST 8: Get Products by Category
+# ============================================================================
+# Replace MLB5672 with an actual category ID
+GET https://api.mercadolibre.com/sites/MLB/search?category=MLB5672&limit=10&offset=0
+Authorization: Bearer {{accessToken}}
+
+###
+
+# ============================================================================
+# TEST 9: Get Seller Listings
+# ============================================================================
+# Replace 123456 with an actual seller ID
+GET https://api.mercadolibre.com/sites/MLB/search?seller_id=123456&limit=10&offset=0
+Authorization: Bearer {{accessToken}}
+
+###
+
+# ============================================================================
+# EXAMPLE WORKFLOW
+# ============================================================================
+# 1. Run TEST 2 to search for products and get product IDs
+# 2. Run TEST 3 with a real product ID from results
+# 3. From product, get seller_id and run TEST 4
+# 4. Run TEST 5 to verify authentication
+# 5. Run TEST 6 to see categories
+# 6. Run TEST 8 with a category ID to browse products
+
+###
+
+# ============================================================================
+# USEFUL CATEGORY IDs in Brazil (MLB)
+# ============================================================================
+# MLB5672 - Electrônicos
+# MLB1649 - Smartphones
+# MLB1743 - Câmeras Digitais
+# MLB1144 - Computadores
+# MLB3937 - Livros, Revistas e Comics
+# Run TEST 6 for complete list
+
+###
+
+# ============================================================================
+# ERROR HANDLING REFERENCE
+# ============================================================================
+# 401 Unauthorized - Invalid or expired access token
+# 403 Forbidden - Token belongs to another user/app, lacks permission for the
+#                 resource, the seller account is not eligible, or the token is invalid
+# 404 Not Found - Product, seller, or category doesn't exist
+# 429 Too Many Requests - Rate limited (wait and retry)
+# 500 Server Error - Mercado Livre server issue
+
+###
+
+# ============================================================================
+# NOTES FOR INTEGRATION IN APPLICATION
+# ============================================================================
+# 1. With MercadoLivreProviderImpl, your code will look like:
+#
+#    const mercadoLivre = new MercadoLivreProviderImpl({
+#      clientId: env.mercadoLivreClientId,
+#      clientSecret: env.mercadoLivreClientSecret,
+#      redirectUri: env.mercadoLivreRedirectUri,
+#      accessToken: env.mercadoLivreAccessToken,
+#    });
+#
+#    const results = await mercadoLivre.searchProducts({
+#      q: 'notebook',
+#      limit: 10,
+#      sort: 'price_asc'
+#    });
+#
+# 2. Error handling:
+#
+#    try {
+#      const product = await mercadoLivre.getProductById(itemId);
+#    } catch (error) {
+#      if (error instanceof ExternalApiAuthError) {
+#        // Refresh token
+#      } else if (error instanceof ExternalApiRateLimitError) {
+#        // Wait and retry
+#      } else if (error instanceof ExternalApiNotFoundError) {
+#        // Handle not found
+#      }
+#    }
+
+###
