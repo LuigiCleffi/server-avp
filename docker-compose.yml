@@ -13,13 +13,13 @@ services:
 
   api:
     build: .
-    profiles: ['prod']
+    container_name: avp-api
     restart: unless-stopped
     environment:
       HOST: 0.0.0.0
       PORT: 3000
       DATABASE_URL: postgresql://avp:avp_psw!@db:5432/avp_db?schema=public
-      JWT_SECRET: change-me
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
     ports:
       - '3000:3000'
     depends_on:
