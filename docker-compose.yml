@@ -2,12 +2,14 @@ services:
   db:
     image: bitnami/postgresql:latest
     restart: unless-stopped
+    profiles:
+      - local-db
     environment:
-      POSTGRES_USER: avp
-      POSTGRES_PASSWORD: avp_psw!
-      POSTGRES_DB: avp_db
+      POSTGRES_USER: ${POSTGRES_USER:-avp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-avp_psw!}
+      POSTGRES_DB: ${POSTGRES_DB:-avp_db}
     ports:
-      - '5432:5432'
+      - '${POSTGRES_PORT:-5432}:5432'
     volumes:
       - db_data:/var/lib/postgresql/data
 
@@ -16,15 +18,18 @@ services:
     container_name: avp-api
     restart: unless-stopped
     environment:
-      HOST: 0.0.0.0
-      PORT: 3000
-      DATABASE_URL: postgresql://avp:avp_psw!@db:5432/avp_db?schema=public
-      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      HOST: ${HOST:-0.0.0.0}
+      PORT: ${PORT:-3000}
+      DATABASE_URL: ${DATABASE_URL_DOCKER:-postgresql://avp:avp_psw!@db:5432/avp_db?schema=public}
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+      JWT_ISSUER: ${JWT_ISSUER:-avp-issuer}
+      MERCADO_LIVRE_CLIENT_ID: ${MERCADO_LIVRE_CLIENT_ID:-}
+      MERCADO_LIVRE_CLIENT_SECRET: ${MERCADO_LIVRE_CLIENT_SECRET:-}
+      MERCADO_LIVRE_REDIRECT_URI: ${MERCADO_LIVRE_REDIRECT_URI:-}
+      MERCADO_LIVRE_ACCESS_TOKEN: ${MERCADO_LIVRE_ACCESS_TOKEN:-}
+      MERCADO_LIVRE_REFRESH_TOKEN: ${MERCADO_LIVRE_REFRESH_TOKEN:-}
     ports:
-      - '3000:3000'
-    depends_on:
-      - db
+      - '${PORT:-3000}:${PORT:-3000}'
 
 volumes:
   db_data:
-
