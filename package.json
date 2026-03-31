@@ -3,11 +3,13 @@
   "version": "1.0.0",
   "packageManager": "pnpm@10.32.1",
   "description": "",
+  "type": "module",
   "main": "dist/src/server.js",
   "scripts": {
     "env": "cp .env.example .env",
     "generate": "prisma generate --schema prisma/schema.prisma",
     "build": "tsc && tsc-alias",
+    "types": "tsc --noEmit",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/src/server.js",
     "test:mercado-livre": "tsx test-mercado-livre.ts"
