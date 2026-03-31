@@ -8,7 +8,7 @@
   "scripts": {
     "env": "cp .env.example .env",
     "generate": "prisma generate --schema prisma/schema.prisma",
-    "build": "tsc && tsc-alias",
+    "build": "tsc && tsc-alias -f",
     "types": "tsc --noEmit",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/src/server.js",
