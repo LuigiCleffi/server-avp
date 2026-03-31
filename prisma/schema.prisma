@@ -58,6 +58,7 @@ model MercadoLivreCredential {
 
 model MercadoLivreOrder {
   orderId      BigInt    @id @map("order_id")
+  sellerId     String    @map("seller_id")
   status       String
   totalAmount  Decimal   @map("total_amount") @db.Decimal(18, 2)
   items        Json
@@ -68,6 +69,7 @@ model MercadoLivreOrder {
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
+  @@index([sellerId])
   @@index([status])
   @@index([shippingId])
   @@index([packId])

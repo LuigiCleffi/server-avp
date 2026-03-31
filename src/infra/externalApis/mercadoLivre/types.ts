@@ -6,7 +6,7 @@ export interface MercadoLivreOAuthConfig {
   clientId: string;
   clientSecret: string;
   redirectUri: string;
-  accessToken: string;
+  accessToken?: string;
 }
 
 export interface MercadoLivreAuthorizationUrlParams {

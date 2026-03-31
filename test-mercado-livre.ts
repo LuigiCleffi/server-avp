@@ -1,116 +1,183 @@
-#!/usr/bin/env tsx
-
-/**
- * Standalone test script for Mercado Livre API integration
- * Run with: npx tsx test-mercado-livre.ts
- *
- * This script reads from your .env file automatically
- */
-
-import { MercadoLivreProviderImpl } from './src/infra/externalApis';
 import { env } from './src/env';
-import {
-  ExternalApiError,
-  ExternalApiAuthError,
-  ExternalApiRateLimitError,
-  ExternalApiNotFoundError,
-} from './src/shared/errors/ExternalApiError';
+import { MercadoLivreTokenService } from './src/application/services/mercadoLivreTokenService';
+import { PrismaMercadoLivreCredentialsRepository } from './src/infra/repositories/prismaMercadoLivreCredentialsRepository';
+import { MercadoLivreProviderImpl } from './src/infra/externalApis';
+import { prisma } from './src/infra/prisma/client';
+import { dbPool } from './src/infra/db/pool';
 
-async function testMercadoLivreIntegration() {
-  console.log('🚀 Testing Mercado Livre API Integration...\n');
+type CliOptions = {
+  sellerId?: string;
+  accessToken?: string;
+  skipOrders: boolean;
+  limit: number;
+};
 
-  // Check if credentials are configured
-  if (!env.mercadoLivreAccessToken) {
-    console.error('❌ MERCADO_LIVRE_ACCESS_TOKEN not found in .env');
-    console.log('Please add your Mercado Livre access token to .env');
-    process.exit(1);
+function parseCliOptions(argv: string[]): CliOptions {
+  const options: CliOptions = {
+    skipOrders: false,
+    limit: 5,
+  };
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+
+    if (arg === '--seller-id') {
+      options.sellerId = argv[index + 1];
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--access-token') {
+      options.accessToken = argv[index + 1];
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--skip-orders') {
+      options.skipOrders = true;
+      continue;
+    }
+
+    if (arg === '--limit') {
+      const value = Number(argv[index + 1]);
+      if (!Number.isInteger(value) || value <= 0 || value > 50) {
+        throw new Error('Invalid --limit value. Use an integer between 1 and 50.');
+      }
+
+      options.limit = value;
+      index += 1;
+    }
   }
 
-  try {
-    // Initialize provider
-    const mercadoLivre = new MercadoLivreProviderImpl({
-      clientId: env.mercadoLivreClientId,
-      clientSecret: env.mercadoLivreClientSecret,
-      redirectUri: env.mercadoLivreRedirectUri,
-      accessToken: env.mercadoLivreAccessToken,
-    });
+  return options;
+}
 
-    console.log('✅ Provider initialized successfully');
-
-    // Test 1: Get authenticated user
-    console.log('\n📋 Test 1: Getting authenticated user...');
-    const user = await mercadoLivre.getAuthenticatedUser();
-    console.log(`✅ User: ${user.nickname} (${user.email})`);
-
-    // Test 2: Get categories
-    console.log('\n📂 Test 2: Getting categories...');
-    const categories = await mercadoLivre.getCategories();
-    console.log(`✅ Found ${categories.length} categories`);
-    console.log(`   First category: ${categories[0]?.name} (${categories[0]?.id})`);
-
-    // Test 3: Search products
-    console.log('\n🔍 Test 3: Searching for "notebook"...');
-    const searchResults = await mercadoLivre.searchProducts({
-      q: 'notebook',
-      limit: 5,
-      sort: 'price_asc',
-    });
-    console.log(`✅ Found ${searchResults.paging.total} products`);
-    console.log(`   Showing first ${searchResults.results.length} results:`);
-
-    searchResults.results.forEach((product, index) => {
-      console.log(`   ${index + 1}. ${product.title} - R$ ${product.price}`);
-    });
-
-    // Test 4: Get product details (if we have results)
-    if (searchResults.results.length > 0) {
-      const firstProduct = searchResults.results[0];
-      console.log(`\n📦 Test 4: Getting details for "${firstProduct.title}"...`);
-      const productDetails = await mercadoLivre.getProductById(firstProduct.id);
-      console.log(`✅ Product: ${productDetails.title}`);
-      console.log(`   Price: R$ ${productDetails.price}`);
-      console.log(`   Available: ${productDetails.available_quantity}`);
-      console.log(`   Condition: ${productDetails.condition}`);
-      console.log(`   Seller ID: ${productDetails.seller_id}`);
-
-      // Test 5: Get seller info
-      console.log(`\n👤 Test 5: Getting seller info for ID ${productDetails.seller_id}...`);
-      const sellerInfo = await mercadoLivre.getSellerInfo(productDetails.seller_id);
-      console.log(`✅ Seller: ${sellerInfo.nickname}`);
-      console.log(`   Status: ${sellerInfo.status?.level_id}`);
-      console.log(`   Power Seller: ${sellerInfo.status?.power_seller_status}`);
-    }
-
-    console.log('\n🎉 All tests passed! Mercado Livre integration is working correctly.');
-    console.log('\n📊 Summary:');
-    console.log('   ✅ Authentication');
-    console.log('   ✅ Product search');
-    console.log('   ✅ Product details');
-    console.log('   ✅ Seller information');
-    console.log('   ✅ Categories');
-
-  } catch (error) {
-    console.error('\n❌ Test failed:');
-
-    if (error instanceof ExternalApiAuthError) {
-      console.error('   Authentication failed - check your access token');
-      console.error('   Make sure your token is valid and not expired');
-    } else if (error instanceof ExternalApiRateLimitError) {
-      console.error(`   Rate limited - retry after ${error.retryAfter}s`);
-    } else if (error instanceof ExternalApiNotFoundError) {
-      console.error('   Resource not found');
-    } else if (error instanceof ExternalApiError) {
-      console.error(`   API Error (${error.statusCode}): ${error.message}`);
-    } else {
-      console.error('   Unexpected error:', error);
-    }
-
-    process.exit(1);
+function ensureMercadoLivreConfig(): void {
+  if (!env.mercadoLivreClientId || !env.mercadoLivreClientSecret || !env.mercadoLivreRedirectUri) {
+    throw new Error(
+      'Missing Mercado Livre config in .env: MERCADO_LIVRE_CLIENT_ID, MERCADO_LIVRE_CLIENT_SECRET, MERCADO_LIVRE_REDIRECT_URI.',
+    );
   }
 }
 
-// Run the test
-testMercadoLivreIntegration().catch((error) => {
-  console.error('💥 Unexpected error:', error);
-  process.exit(1);
-});
+function normalizeCliAccessToken(value?: string): string | undefined {
+  if (value === undefined) return undefined;
+
+  const normalized = value.trim();
+  if (!normalized || normalized.toLowerCase() === 'null' || normalized.toLowerCase() === 'undefined') {
+    return undefined;
+  }
+
+  return normalized;
+}
+
+async function resolveAccessToken(options: CliOptions): Promise<string> {
+  if (options.accessToken !== undefined) {
+    const normalizedToken = normalizeCliAccessToken(options.accessToken);
+    if (!normalizedToken) {
+      throw new Error(
+        'Invalid --access-token value. It looks empty/null. Token exchange likely failed (for example: invalid_grant).',
+      );
+    }
+
+    return normalizedToken;
+  }
+
+  if (!options.sellerId) {
+    throw new Error(
+      'Provide --access-token or --seller-id. For --seller-id, credentials must already exist in database (ml_credentials).',
+    );
+  }
+
+  const tokenService = new MercadoLivreTokenService(new PrismaMercadoLivreCredentialsRepository());
+  return tokenService.getValidAccessToken(options.sellerId);
+}
+
+async function main(): Promise<void> {
+  const options = parseCliOptions(process.argv.slice(2));
+  ensureMercadoLivreConfig();
+
+  console.log('\n[Mercado Livre] Starting integration smoke test...');
+  const accessToken = await resolveAccessToken(options);
+
+  const provider = new MercadoLivreProviderImpl({
+    clientId: env.mercadoLivreClientId,
+    clientSecret: env.mercadoLivreClientSecret,
+    redirectUri: env.mercadoLivreRedirectUri,
+    accessToken,
+  });
+
+  const user = await provider.getAuthenticatedUser();
+  console.log(`[OK] Authenticated user -> id=${user.id}, nickname=${user.nickname}`);
+
+  const categories = await provider.getCategories('MLB');
+  console.log(`[OK] Categories API -> received ${categories.length} categories`);
+
+  if (!options.skipOrders) {
+    const sellerId = options.sellerId ?? String(user.id);
+    const orders = await provider.listOrders({
+      sellerId,
+      limit: options.limit,
+      sort: 'date_desc',
+    });
+
+    console.log(
+      `[OK] Orders API -> seller=${sellerId}, returned=${orders.results.length}, total=${orders.paging.total}`,
+    );
+  } else {
+    console.log('[SKIP] Orders API test skipped via --skip-orders');
+  }
+
+  console.log('[DONE] Mercado Livre integration smoke test passed.\n');
+}
+
+function stringifySafely(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function formatError(error: unknown): string {
+  if (error instanceof Error) {
+    const details = error as {
+      statusCode?: number;
+      externalServiceName?: string;
+      originalError?: { response?: { data?: unknown } };
+      cause?: unknown;
+    };
+
+    const parts = [error.message || error.name];
+
+    if (details.statusCode !== undefined) {
+      parts.push(`status=${details.statusCode}`);
+    }
+
+    if (details.externalServiceName) {
+      parts.push(`service=${details.externalServiceName}`);
+    }
+
+    const responseData = details.originalError?.response?.data;
+    if (responseData !== undefined) {
+      parts.push(`response=${stringifySafely(responseData)}`);
+    } else if (details.cause !== undefined) {
+      parts.push(`cause=${stringifySafely(details.cause)}`);
+    }
+
+    return parts.join(' | ');
+  }
+
+  return stringifySafely(error);
+}
+
+main()
+  .catch((error: unknown) => {
+    const message = formatError(error);
+    console.error(`\n[FAIL] Mercado Livre integration smoke test failed: ${message}\n`);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+    await dbPool.end();
+  });

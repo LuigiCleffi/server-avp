@@ -3,12 +3,14 @@ import { authRoutes } from './auth';
 import { healthRoutes } from './health';
 import { PrismaAccountsRepository } from '@/infra/repositories/prismaAccountsRepository';
 import { PrismaMercadoLivreCredentialsRepository } from '@/infra/repositories/prismaMercadoLivreCredentialsRepository';
+import { PrismaMercadoLivreOrdersRepository } from '@/infra/repositories/prismaMercadoLivreOrdersRepository';
 import { PrismaPasswordResetTokensRepository } from '@/infra/repositories/prismaPasswordResetTokensRepository';
 import { BcryptPasswordHasher } from '@/infra/auth/bcryptPasswordHasher';
 import { JwtTokenService } from '@/infra/auth/jwtTokenService';
 import { ConsoleMailer } from '@/infra/mailer/consoleMailer';
 import { env } from '@/env';
 import { mercadoLivreRoutes } from './mercadoLivre';
+import { MercadoLivreOrderSyncService } from '@/application/services/mercadoLivreOrderSyncService';
 import { MercadoLivreTokenService } from '@/application/services/mercadoLivreTokenService';
 
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
@@ -19,6 +21,10 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   const accountsRepository = new PrismaAccountsRepository();
   const mercadoLivreTokenService = new MercadoLivreTokenService(
     new PrismaMercadoLivreCredentialsRepository(),
+  );
+  const mercadoLivreOrderSyncService = new MercadoLivreOrderSyncService(
+    mercadoLivreTokenService,
+    new PrismaMercadoLivreOrdersRepository(),
   );
 
   await app.register(authRoutes, {
@@ -31,5 +37,6 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
   await app.register(mercadoLivreRoutes, {
     tokenService: mercadoLivreTokenService,
+    orderSyncService: mercadoLivreOrderSyncService,
   });
 }

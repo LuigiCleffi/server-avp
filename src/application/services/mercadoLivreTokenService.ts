@@ -2,7 +2,11 @@ import type {
   MercadoLivreCredentials,
   MercadoLivreCredentialsRepository,
 } from '@/application/ports/mercadoLivreCredentialsRepository';
-import { MercadoLivreProviderImpl, type MercadoLivreTokenResponse } from '@/infra/externalApis';
+import {
+  MercadoLivreProviderImpl,
+  type MercadoLivreTokenResponse,
+  type MercadoLivreUser,
+} from '@/infra/externalApis';
 import { env } from '@/env';
 import { NotFoundError } from '@/shared/errors/appErrors';
 
@@ -11,6 +15,12 @@ export type MercadoLivreConnectionResult = {
   nickname: string;
   email: string;
   expiresAt: string;
+};
+
+export type ImportMercadoLivreCredentialsInput = {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
 };
 
 export type MercadoLivreCredentialStatus = {
@@ -35,10 +45,22 @@ export class MercadoLivreTokenService {
   async exchangeCode(code: string): Promise<MercadoLivreConnectionResult> {
     const provider = this.createProvider();
     const tokenResponse = await provider.exchangeCodeForToken(code);
-    const credentials = await this.persistTokenResponse(tokenResponse);
+    const { credentials, user } = await this.persistTokenResponse(tokenResponse);
 
-    provider.updateAccessToken(credentials.accessToken);
-    const user = await provider.getAuthenticatedUser();
+    return {
+      sellerId: credentials.sellerId,
+      nickname: user.nickname,
+      email: user.email,
+      expiresAt: credentials.expiresAt.toISOString(),
+    };
+  }
+
+  async importCredentials(input: ImportMercadoLivreCredentialsInput): Promise<MercadoLivreConnectionResult> {
+    const { credentials, user } = await this.persistCredentials({
+      accessToken: input.accessToken,
+      refreshToken: input.refreshToken,
+      expiresIn: input.expiresIn,
+    });
 
     return {
       sellerId: credentials.sellerId,
@@ -85,7 +107,7 @@ export class MercadoLivreTokenService {
     };
   }
 
-  private createProvider(accessToken: string = env.mercadoLivreAccessToken): MercadoLivreProviderImpl {
+  private createProvider(accessToken?: string): MercadoLivreProviderImpl {
     return new MercadoLivreProviderImpl({
       clientId: env.mercadoLivreClientId,
       clientSecret: env.mercadoLivreClientSecret,
@@ -129,18 +151,37 @@ export class MercadoLivreTokenService {
 
     const provider = this.createProvider(current.accessToken);
     const refreshed = await provider.refreshAccessToken(current.refreshToken);
-    return this.persistTokenResponse(refreshed);
+    const { credentials } = await this.persistTokenResponse(refreshed);
+    return credentials;
   }
 
-  private async persistTokenResponse(tokenResponse: MercadoLivreTokenResponse): Promise<MercadoLivreCredentials> {
-    const provider = this.createProvider(tokenResponse.access_token);
-    const user = await provider.getAuthenticatedUser();
-
-    return this.credentialsRepository.save({
-      sellerId: String(user.id),
+  private async persistTokenResponse(
+    tokenResponse: MercadoLivreTokenResponse,
+  ): Promise<{ credentials: MercadoLivreCredentials; user: MercadoLivreUser }> {
+    return this.persistCredentials({
       accessToken: tokenResponse.access_token,
       refreshToken: tokenResponse.refresh_token,
-      expiresAt: new Date(Date.now() + tokenResponse.expires_in * 1000),
+      expiresIn: tokenResponse.expires_in,
     });
+  }
+
+  private async persistCredentials(input: {
+    accessToken: string;
+    refreshToken: string;
+    expiresIn: number;
+  }): Promise<{ credentials: MercadoLivreCredentials; user: MercadoLivreUser }> {
+    const provider = this.createProvider(input.accessToken);
+    const user = await provider.getAuthenticatedUser();
+    const credentials = await this.credentialsRepository.save({
+      sellerId: String(user.id),
+      accessToken: input.accessToken,
+      refreshToken: input.refreshToken,
+      expiresAt: new Date(Date.now() + input.expiresIn * 1000),
+    });
+
+    return {
+      credentials,
+      user,
+    };
   }
 }

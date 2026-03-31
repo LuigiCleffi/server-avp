@@ -1,5 +1,5 @@
 import { URL } from 'node:url';
-import AWS from 'aws-sdk';
+import { Signer } from '@aws-sdk/rds-signer';
 import { Pool, type PoolConfig } from 'pg';
 import { env } from '@/env';
 
@@ -21,15 +21,13 @@ function getPoolConfig(): PoolConfig {
     };
   }
 
-  AWS.config.update({ region: env.awsRegion });
-
   const fallback = getDatabaseConfigFromUrl(env.databaseUrl);
   const host = env.dbHost || fallback.host;
   const port = env.dbPort || fallback.port;
   const database = env.dbName || fallback.database;
   const user = env.dbUser || fallback.user;
 
-  const signer = new AWS.RDS.Signer({
+  const signer = new Signer({
     region: env.awsRegion,
     hostname: host,
     port,
@@ -41,12 +39,7 @@ function getPoolConfig(): PoolConfig {
     port,
     database,
     user,
-    password: async () => signer.getAuthToken({ username: user }),
-    ssl: env.dbSslEnabled
-      ? {
-          rejectUnauthorized: env.dbSslRejectUnauthorized,
-        }
-      : undefined,
+    password: async () => signer.getAuthToken(),
   };
 }
 

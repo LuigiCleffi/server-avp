@@ -20,7 +20,6 @@ import {
  * Handles all interactions with the Mercado Livre API for consuming product and seller data.
  */
 export class MercadoLivreClient extends BaseExternalApiClient {
-  private accessToken: string;
   private readonly clientId: string;
   private readonly clientSecret: string;
   private readonly redirectUri: string;
@@ -30,12 +29,12 @@ export class MercadoLivreClient extends BaseExternalApiClient {
       baseURL: 'https://api.mercadolibre.com',
     };
 
-    // Initialize with access token in default headers
-    super(config, 'Mercado Livre', {
-      Authorization: `Bearer ${oauthConfig.accessToken}`,
-    });
+    const authorizationHeaders = oauthConfig.accessToken
+      ? { Authorization: `Bearer ${oauthConfig.accessToken}` }
+      : undefined;
 
-    this.accessToken = oauthConfig.accessToken;
+    super(config, 'Mercado Livre', authorizationHeaders);
+
     this.clientId = oauthConfig.clientId;
     this.clientSecret = oauthConfig.clientSecret;
     this.redirectUri = oauthConfig.redirectUri;
@@ -221,7 +220,6 @@ export class MercadoLivreClient extends BaseExternalApiClient {
    * @param newAccessToken New access token
    */
   updateAccessToken(newAccessToken: string): void {
-    this.accessToken = newAccessToken;
     this.axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
   }
 }
