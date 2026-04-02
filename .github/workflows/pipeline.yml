@@ -29,14 +29,8 @@ jobs:
       - name: Enable docker buildx plugin
         uses: docker/setup-buildx-action@v3
 
-      # ✅ PROFESSIONAL WAY
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::ACCOUNT-ID:role/GitHubActionsRole
-          role-session-name: GitHubActions
-          aws-region: ${{ vars.AWS_REGION }}
-
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -60,11 +54,24 @@ jobs:
           tags: ${{ env.IMAGE_URI }},${{ secrets.ECR_REGISTRY }}:latest
           platforms: linux/arm64
 
-      - name: Execute SSM playbook to deploy app
+      - name: Download current task definition
         run: |
-          aws ssm send-command \
-            --document-name "${{ vars.SSM_DOCUMENT_NAME }}" \
-            --comment "Deploy backend. Env: ${{ inputs.environment}}. Image: ${GITHUB_RUN_ID}" \
-            --parameters "application=backend,containerNameSuffix=${{ inputs.environment}}-${GITHUB_RUN_ID},imageUri=${{ env.IMAGE_URI }}" \
-            --targets Key=tag:environment,Values=${{ inputs.environment}} Key=tag:stack,Values=application \
-            --region ${{ vars.AWS_REGION }}
+          aws ecs describe-task-definition \
+            --task-definition ${{ vars.ECS_TASK_DEFINITION }} \
+            --query taskDefinition > task-definition.json
+
+      - name: Update task definition with new image
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: avp
+          image: ${{ needs.build-and-push.outputs.image-uri }}
+
+      - name: Deploy to Amazon ECS service
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ vars.ECS_SERVICE }}
+          cluster: ${{ vars.ECS_CLUSTER }}
+          wait-for-service-stability: true
