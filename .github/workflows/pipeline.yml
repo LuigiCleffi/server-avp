@@ -15,7 +15,7 @@ on:
 jobs:
   deploy:
     name: Build and push backend image
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
     environment: ${{ inputs.environment}}
 
     permissions:
