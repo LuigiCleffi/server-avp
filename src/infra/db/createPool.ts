@@ -18,6 +18,7 @@ function getPoolConfig(): PoolConfig {
   if (!env.rdsIamAuthEnabled) {
     return {
       connectionString: env.databaseUrl,
+      ssl: { rejectUnauthorized: false }
     };
   }
 
