@@ -30,7 +30,7 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
       try {
         await dbPool.query('SELECT 1');
         return reply.status(200).send({ status: 'ok', database: 'up' });
-      } catch (err) {
+      } catch (error) {
         console.error('Query error', err.stack);
         return reply.status(503).send({ status: 'degraded', database: 'down' });
       }
